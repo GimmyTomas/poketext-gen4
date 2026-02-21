@@ -39,3 +39,6 @@ test_frame_*.png
 test_ocr_*.png
 test_textbox_frame_*.png
 test_sample_frame_*.png
+debug_*.png
+measure*_*.png
+templates_grid*.png
