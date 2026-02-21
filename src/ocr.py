@@ -127,8 +127,8 @@ class PokemonOCR:
             "comma": ",",
             "exclaim": "!",
             "question": "?",
-            "apostrophe": "'",
-            "apostrophe_close": "\u2019",  # Right single quote '
+            "apostrophe": "'",  # Normal apostrophe (right single quote)
+            "apostrophe_open": "\u2018",  # Left single quote '
             "quote": '"',
             "quote_close": "\u201d",  # Right double quote "
             "colon": ":",
@@ -147,7 +147,6 @@ class PokemonOCR:
             "tilde_inverted": "~",  # Same character, different rendering
             "ellipsis": "…",
             "middot": "·",
-            "times": "×",
             # Accented characters
             "a_grave": "à",
             "e_grave": "è",
@@ -167,7 +166,6 @@ class PokemonOCR:
             "arrow_down": "↓",
             # Shapes
             "triangle": "△",
-            "circle": "○",
             "circle_dot": "◉",
             "square": "□",
             "rhombus": "◇",
