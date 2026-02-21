@@ -2,62 +2,63 @@
 
 ## Project Overview
 
-A tool to extract text from Pokémon Generation 4 speedrun videos (Diamond, Pearl, Platinum, HeartGold, SoulSilver). The primary goal is to count characters for speedrun optimization and language comparison analysis.
+Extract "slow text" (1 char/frame at 60fps) from Pokémon Gen 4 speedrun videos for character counting and speedrun optimization.
 
-## Key Concepts
+## Current Status: Template Extraction Complete
 
-### Text Types
-- **Slow text**: Printed at 1 character per frame (60fps). This is what we extract.
-- **Instant text**: Printed all at once. We ignore this.
+**97 character templates** extracted and ready for OCR implementation.
 
-### Technical Details
-- DS native resolution: 256x192 per screen
-- Videos may be recorded at various resolutions (integer or non-integer multiples)
-- Recordings may be 30fps or 60fps (game runs at 60fps, overworld updates at 30fps)
-- Screen layout varies: top screen can be on left or right, usually larger
+### Completed:
+- [x] Video reading with OpenCV
+- [x] Screen layout auto-detection (top screen position, scale factor)
+- [x] Textbox state detection (open/closed/scrolling)
+- [x] Text region extraction (normalized to DS 256x192)
+- [x] Character template extraction tools
+- [x] 97 Western character templates (A-Z, a-z, 0-9, punctuation, accented)
 
-### Text Detection Strategy
-1. **Textbox detection**: Identify when a dialogue textbox is open
-2. **Animation verification**: Confirm text is appearing character-by-character
-3. **Character recognition**: Custom template matching using the game's fixed font
+### Next Steps:
+1. **Implement template matching OCR** in `src/ocr.py`
+2. **Test on video** - run OCR on extracted text regions
+3. **Detect slow vs instant text** - verify character-by-character appearance
+4. **Output results** - text file with character count
 
-### Supported Games
-- Pokémon Diamond (DS)
-- Pokémon Pearl (DS)
-- Pokémon Platinum (DS)
-- Pokémon HeartGold (DS)
-- Pokémon SoulSilver (DS)
+## Technical Details
 
-### Supported Languages
-- Western: English, Italian, French, German, Spanish
-- Japanese (different font/character set)
-
-## Project Structure
-
-```
-src/
-├── main.py              # Entry point
-├── video.py             # Video frame extraction
-├── screen.py            # Screen layout detection
-├── textbox.py           # Textbox state detection
-├── ocr.py               # Custom character recognition
-└── games/               # Game-specific configurations
-    ├── base.py
-    ├── diamond_pearl.py
-    ├── platinum.py
-    └── hgss.py
+### Text Region Coordinates (DS native 256x192)
+```python
+TEXT_X = 14       # X start of text
+TEXT_Y_LINE1 = 152  # Y start of first line
+TEXT_Y_LINE2 = 168  # Y start of second line
+CHAR_HEIGHT = 14    # Character height in pixels
 ```
 
-## Output Format
-- Full extracted text
-- Total character count at the end
+### Character Width Table
+Located in `tools/extract_templates.py` - CharacterWidths class.
+Most characters: 5 pixels. Narrow (i, l, !, .): 3 pixels. Wide (m, w, O): 6-7 pixels.
 
-## Legacy Code
-The `poketext-gen4/` directory contains the original C++ implementation using FFmpeg and Tesseract. It works but has accuracy issues with OCR. The new Python implementation uses custom template matching instead.
+### Key Files
+- `src/video.py` - Video frame extraction
+- `src/screen.py` - Screen layout detection
+- `src/textbox.py` - Textbox state detection
+- `src/ocr.py` - OCR (needs template matching implementation)
+- `tools/extract_templates.py` - Template extraction from screenshots
+- `templates/western/` - 97 character template images
 
-## Development Notes
-- Use OpenCV for video reading and image processing
-- Template matching for OCR (game uses fixed fonts)
-- Auto-detect screen layout (top screen is larger)
-- Handle both 30fps and 60fps recordings
-- Handle various recording resolutions (sharp and blurry pixels)
+### Test Scripts
+- `test_video.py` - Test video reading and screen detection
+- `test_textbox.py` - Find frames with open textboxes
+- `test_ocr_region.py` - Extract and visualize text regions
+
+### Sample Video
+`dp-any-gimmy.mp4` - Italian Diamond speedrun, 854x480 @ 30fps, 2.5x scale
+
+## User Preferences
+- Language: Python (with OpenCV)
+- Primary goal: Character counting for speedrun optimization
+- Support: Gen 4 games (D/P/Pt/HG/SS), Western + Japanese languages
+- Output: Text file with extracted text and character count
+
+## Ideas for Future
+- Template reconstruction for unknown/blurry characters
+- Japanese character support (separate template set)
+- Other Western language accented characters
