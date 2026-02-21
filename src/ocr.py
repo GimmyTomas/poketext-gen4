@@ -147,13 +147,20 @@ class PokemonOCR:
             "tilde_inverted": "~",  # Same character, different rendering
             "ellipsis": "…",
             "middot": "·",
-            # Accented characters
+            # Accented characters (lowercase)
             "a_grave": "à",
             "e_grave": "è",
             "e_acute": "é",
             "i_grave": "ì",
             "o_grave": "ò",
             "u_grave": "ù",
+            # Accented characters (uppercase)
+            "upper_A_grave": "À",
+            "upper_E_grave": "È",
+            "upper_E_acute": "É",
+            "upper_I_grave": "Ì",
+            "upper_O_grave": "Ò",
+            "upper_U_grave": "Ù",
             # Symbols
             "female": "♀",
             "male": "♂",
