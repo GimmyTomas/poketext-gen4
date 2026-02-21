@@ -1,2 +1,35 @@
+# macOS
+.DS_Store
 *.xcodeproj
-*.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+*.mp4
+*.avi
+*.mov
+*.mkv
+frames/
+output_text*.txt
+frame.bmp
+out
