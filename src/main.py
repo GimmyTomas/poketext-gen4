@@ -5,9 +5,12 @@ Usage:
     python -m src.main <video_path> [options]
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional, Tuple, List
 
 from .video import VideoReader
 from .screen import detect_screen_layout, extract_top_screen, normalize_to_ds_resolution
@@ -16,10 +19,10 @@ from .ocr import PokemonOCR
 
 
 def process_video(video_path: Path,
-                  output_path: Path | None = None,
+                  output_path: Optional[Path] = None,
                   game: str = "diamond_pearl",
                   language: str = "en",
-                  verbose: bool = False) -> tuple[str, int]:
+                  verbose: bool = False) -> Tuple[str, int]:
     """
     Process a video and extract text.
 
@@ -52,7 +55,7 @@ def process_video(video_path: Path,
         ocr = PokemonOCR(language=language)
 
         # State tracking
-        extracted_lines: list[str] = []
+        extracted_lines: List[str] = []
         prev_text_region = None
         prev_state = TextboxState.CLOSED
         current_text = ""

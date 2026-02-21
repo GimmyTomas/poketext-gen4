@@ -33,3 +33,9 @@ frames/
 output_text*.txt
 frame.bmp
 out
+
+# Test output files
+test_frame_*.png
+test_ocr_*.png
+test_textbox_frame_*.png
+test_sample_frame_*.png

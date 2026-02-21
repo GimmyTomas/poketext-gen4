@@ -1,9 +1,12 @@
 """Custom OCR for Pokemon Gen 4 text using template matching."""
 
+from __future__ import annotations
+
 import cv2
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Optional, Dict, Tuple
 
 
 @dataclass
@@ -30,7 +33,7 @@ class PokemonOCR:
     # Special character widths (some are narrower)
     NARROW_CHARS = set("il1!.,':;")  # These might be narrower
 
-    def __init__(self, templates_dir: Path | None = None, language: str = "en"):
+    def __init__(self, templates_dir: Optional[Path] = None, language: str = "en"):
         """
         Initialize the OCR with character templates.
 
@@ -39,7 +42,7 @@ class PokemonOCR:
             language: Language code (en, it, fr, de, es, ja)
         """
         self.language = language
-        self.templates: dict[str, CharacterTemplate] = {}
+        self.templates: Dict[str, CharacterTemplate] = {}
 
         if templates_dir and templates_dir.exists():
             self._load_templates(templates_dir)
@@ -147,7 +150,7 @@ class PokemonOCR:
 
         return "".join(result)
 
-    def recognize_textbox(self, text_region: np.ndarray) -> tuple[str, str]:
+    def recognize_textbox(self, text_region: np.ndarray) -> Tuple[str, str]:
         """
         Recognize text from a textbox region (two lines).
 

@@ -1,15 +1,17 @@
 """Video frame extraction using OpenCV."""
 
+from __future__ import annotations
+
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Iterator, Tuple
+from typing import Iterator, Tuple, Optional, Union
 
 
 class VideoReader:
     """Reads video files and extracts frames."""
 
-    def __init__(self, video_path: str | Path):
+    def __init__(self, video_path: Union[str, Path]):
         self.video_path = Path(video_path)
         self.cap = cv2.VideoCapture(str(self.video_path))
 
@@ -40,7 +42,7 @@ class VideoReader:
             yield frame_num, frame
             frame_num += 1
 
-    def get_frame(self, frame_num: int) -> np.ndarray | None:
+    def get_frame(self, frame_num: int) -> Optional[np.ndarray]:
         """Get a specific frame by number."""
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
         ret, frame = self.cap.read()

@@ -1,9 +1,12 @@
 """Screen layout detection for DS video recordings."""
 
+from __future__ import annotations
+
 import cv2
 import numpy as np
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Optional, Tuple
 
 
 # DS native resolution
@@ -23,8 +26,8 @@ class ScreenPosition(Enum):
 class ScreenLayout:
     """Detected screen layout information."""
     top_screen_pos: ScreenPosition
-    top_screen_rect: tuple[int, int, int, int]  # (x, y, width, height)
-    bottom_screen_rect: tuple[int, int, int, int] | None
+    top_screen_rect: Tuple[int, int, int, int]  # (x, y, width, height)
+    bottom_screen_rect: Optional[Tuple[int, int, int, int]]
     scale_factor: float  # Relative to DS native resolution
 
     @property

@@ -1,7 +1,10 @@
 """Base class for game-specific configurations."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 @dataclass
@@ -44,7 +47,7 @@ class GameConfig(ABC):
         return False
 
     @property
-    def large_textbox(self) -> TextboxConfig | None:
+    def large_textbox(self) -> Optional[TextboxConfig]:
         """Large text mode textbox configuration."""
         return None
 
