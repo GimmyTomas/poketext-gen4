@@ -4,11 +4,11 @@
 
 Extract "slow text" (1 char/frame at 60fps) from Pokémon Gen 4 speedrun videos for character counting and speedrun optimization.
 
-## Current Status: Dialogue Extraction Working
+## Current Status: Phase 1 Complete
 
-The system can now extract dialogue text from speedrun videos with high accuracy.
+First working version for Diamond/Pearl with Western languages. All core features implemented and tested.
 
-### Completed:
+### Completed (Phase 1):
 - [x] Video reading with OpenCV
 - [x] Screen layout auto-detection (top screen position, scale factor)
 - [x] Textbox state detection (open/closed/scrolling)
@@ -17,12 +17,16 @@ The system can now extract dialogue text from speedrun videos with high accuracy
 - [x] Template matching OCR with sliding window
 - [x] Slow vs instant text detection (via text growth patterns)
 - [x] Scrolling text handling (outputs as separate lines)
-- [x] Big text support (2x vertically stretched, e.g., "Pum!!!")
+- [x] Big text support (2x vertically stretched, e.g., "Pum!!!", "Thud!!")
 - [x] Full dialogue extraction pipeline (`extract_dialogue.py`)
 
-### Output Files Generated:
-- `dp-any-gimmy_dialogue.txt` - Italian Diamond speedrun (first 3 min)
-- `dp-any-scoa_dialogue.txt` - English Diamond speedrun (first 3 min)
+### Planned (Future Phases):
+- [ ] Character counting with timing analysis
+- [ ] Platinum / HG/SS game support
+- [ ] Japanese character templates
+- [ ] Battle text detection
+- [ ] Menu text detection
+- [ ] Full video processing (beyond first few minutes)
 
 ## Technical Details
 
@@ -67,12 +71,6 @@ python extract_dialogue.py dp-any-gimmy.mp4 180
 python extract_dialogue.py dp-any-gimmy.mp4
 ```
 
-## User Preferences
-- Language: Python (with OpenCV)
-- Primary goal: Character counting for speedrun optimization
-- Support: Gen 4 games (D/P/Pt/HG/SS), Western languages
-- Output: Text file with extracted dialogue (no timestamps)
-
 ## Text Detection Rules
 
 ### Slow Text vs Instant Text
@@ -83,6 +81,11 @@ python extract_dialogue.py dp-any-gimmy.mp4
 ### Scrolling Text
 - When text scrolls up, outputs each line separately
 - Avoids double-counting scrolled text
+
+### Big Text
+- Some text is 2x vertically stretched (e.g., "Pum!!!", "Thud!!")
+- Uses stretched templates with lower matching threshold
+- Triggers SCROLLING state due to extending into detection strip
 
 ### Output Format
 - Line1 and Line2 vertically aligned (no indent)
