@@ -1185,7 +1185,7 @@ Ecco!
 Questo è il tuo Coupon!
 
 G ottiene
-Cou on 3!
+Coupon 3!
 
 G mette Coupon 3
 nella Tasca ■STRUMENTI BASE.
@@ -1824,7 +1824,7 @@ Vuoi raccoglierla?
 Hai raccolto la Baccapesca.
 
 G mette tutto nella Tasca
-BACCHE della Borsa.
+■BACCHE della Borsa.
 
 Il terreno è ritornato
 soffice e fertile.

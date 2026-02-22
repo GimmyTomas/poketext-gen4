@@ -250,12 +250,11 @@ class PokemonOCR:
         Returns:
             Recognized text string
         """
+        blue_icon_positions = []
         if len(line_image.shape) == 3:
-            # Preprocess: darken blue pixels before grayscale conversion
-            # This helps detect blue icons (pocket symbols) that would otherwise
-            # become white/invisible in grayscale
-            processed = self._darken_blue_pixels(line_image)
-            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
+            # Detect blue icon positions before grayscale conversion
+            blue_icon_positions = self._detect_blue_icons(line_image)
+            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 
@@ -275,8 +274,15 @@ class PokemonOCR:
             if gray.min() < 120:
                 matches = self._find_all_matches(gray, try_stretched=True)
 
+        # Add blue icon matches (pocket symbols detected by color)
+        for x, width in blue_icon_positions:
+            matches.append(('■', x, width, 1.0))
+
         if not matches:
             return ""
+
+        # Sort matches by x position
+        matches.sort(key=lambda m: m[1])
 
         # Build result string from matches, inserting spaces where gaps exist
         result = []
@@ -307,8 +313,7 @@ class PokemonOCR:
             Recognized text string
         """
         if len(line_image.shape) == 3:
-            processed = self._darken_blue_pixels(line_image)
-            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 
@@ -509,35 +514,54 @@ class PokemonOCR:
                 return max(0, x - 2)
         return 0  # Default to start if no text found
 
-    def _darken_blue_pixels(self, image: np.ndarray) -> np.ndarray:
+    def _detect_blue_icons(self, image: np.ndarray) -> List[Tuple[int, int]]:
         """
-        Darken blue pixels so they're visible after grayscale conversion.
+        Detect blue pocket icons in the image and return their positions.
 
         Pokemon Gen 4 uses blue icons for pocket/bag categories. These icons
-        become nearly white when converted to grayscale because blue has high
-        luminance. This method detects blue pixels and darkens them.
+        need to be detected by color before grayscale conversion.
 
         Args:
             image: BGR image
 
         Returns:
-            Modified BGR image with blue pixels darkened
+            List of (x_position, width) tuples for detected blue icons
         """
-        result = image.copy()
-
         # Split into BGR channels and convert to int16 to avoid overflow
-        b = result[:, :, 0].astype(np.int16)
-        g = result[:, :, 1].astype(np.int16)
-        r = result[:, :, 2].astype(np.int16)
+        b = image[:, :, 0].astype(np.int16)
+        g = image[:, :, 1].astype(np.int16)
+        r = image[:, :, 2].astype(np.int16)
 
         # Detect blue pixels: B channel is high (>150), and significantly higher than R and G
-        # This matches the blue pocket icons while avoiding other colors
         blue_mask = (b > 150) & (b > r + 40) & (b > g + 40)
 
-        # Darken blue pixels by setting them to dark gray
-        result[blue_mask] = [80, 80, 80]
+        # Find contiguous blue regions (columns with blue pixels)
+        blue_cols = np.any(blue_mask, axis=0)
 
-        return result
+        icons = []
+        in_icon = False
+        icon_start = 0
+
+        for x in range(len(blue_cols)):
+            if blue_cols[x] and not in_icon:
+                # Start of icon
+                in_icon = True
+                icon_start = x
+            elif not blue_cols[x] and in_icon:
+                # End of icon
+                in_icon = False
+                icon_width = x - icon_start
+                # Only count as icon if width is reasonable (4-12 pixels)
+                if 4 <= icon_width <= 12:
+                    icons.append((icon_start, icon_width))
+
+        # Handle icon at end of line
+        if in_icon:
+            icon_width = len(blue_cols) - icon_start
+            if 4 <= icon_width <= 12:
+                icons.append((icon_start, icon_width))
+
+        return icons
 
     def _find_best_match(self, gray: np.ndarray, x: int, try_stretched: bool = False) -> Optional[Tuple[str, float, CharacterTemplate]]:
         """
@@ -643,8 +667,7 @@ class PokemonOCR:
             List of (character, confidence) tuples
         """
         if len(line_image.shape) == 3:
-            processed = self._darken_blue_pixels(line_image)
-            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 

@@ -42,17 +42,22 @@ def is_garbage_text(text: str) -> bool:
     if any(c in garbage_symbols for c in text):
         return True
 
-    # Very short text (less than 3 alphanumeric chars) with symbols is likely garbage
-    # This catches fragments like "e ♣", "…, g,", "!□☃L "'", "g■"
-    if alnum_count < 3:
-        # Allow ellipsis-like punctuation even if short
-        if stripped and all(c in '.…' for c in stripped):
-            return False
-        # Very short with any non-word symbols is garbage
-        if len(text) <= 4:
+    # Single letter fragments with special symbols are likely garbage
+    # This catches fragments like "e ♣", "g■"
+    # But allows valid short text like "G ...", "OK...", "No!", "Sì"
+    if alnum_count == 1:
+        # Single letter with special symbols (not standard punctuation) is garbage
+        non_alnum = [c for c in text if not c.isalnum() and c not in ' .!?,…']
+        if non_alnum:
             return True
-        # Longer but mostly symbols is also garbage
-        if len(text) > alnum_count + 2:
+        # Check for garbage patterns: punctuation-letter-punctuation (like "…, g,")
+        # But allow valid patterns like "G ..." (letter followed by space and dots)
+        stripped = text.strip()
+        if stripped and stripped[0].isalnum():
+            # Starts with letter - likely valid (e.g., "G ...", "I?")
+            pass
+        elif len(text) > 3:
+            # Starts with punctuation and is long - likely garbage
             return True
 
     # Text must have at least some alphanumeric content to be valid
