@@ -32,10 +32,17 @@ class VideoReader:
     def close(self):
         self.cap.release()
 
-    def frames(self) -> Iterator[Tuple[int, np.ndarray]]:
-        """Yield (frame_number, frame) tuples."""
+    def frames(self, max_frames: Optional[int] = None) -> Iterator[Tuple[int, np.ndarray]]:
+        """Yield (frame_number, frame) tuples.
+
+        Args:
+            max_frames: Stop after this many frames (None = all frames)
+        """
+        # Reset to start
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
         frame_num = 0
-        while True:
+        while max_frames is None or frame_num < max_frames:
             ret, frame = self.cap.read()
             if not ret:
                 break

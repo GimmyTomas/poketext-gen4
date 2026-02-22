@@ -31,8 +31,9 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
     BIG_CHAR_HEIGHT = 30  # For 2x vertically stretched text like "Pum!!!"
 
     with VideoReader(video_path) as video:
-        frame0 = video.get_frame(0)
-        layout = detect_screen_layout(frame0)
+        # Get first frame for layout detection
+        first_frame = next(video.frames(max_frames=1))[1]
+        layout = detect_screen_layout(first_frame)
         detector = TextboxDetector()
 
         max_frames = video.frame_count
@@ -46,10 +47,8 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
         prev_text_len = 0  # Track text length to detect instant vs slow text
         text_growth_count = 0  # Count frames where text grew incrementally
 
-        for frame_num in range(max_frames):
-            frame = video.get_frame(frame_num)
-            if frame is None:
-                continue
+        # Use sequential frame reading (much faster than seeking)
+        for frame_num, frame in video.frames(max_frames=max_frames):
 
             top_screen = extract_top_screen(frame, layout)
             normalized = normalize_to_ds_resolution(top_screen, layout)

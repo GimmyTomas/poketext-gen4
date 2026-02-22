@@ -16,6 +16,7 @@ class CharacterTemplate:
     template: np.ndarray
     width: int
     height: int
+    variance: float  # Precomputed variance for fast filtering
 
 
 class CharacterWidths:
@@ -112,6 +113,7 @@ class PokemonOCR:
 
         if templates_dir.exists():
             self._load_templates(templates_dir)
+            self._sort_templates_by_frequency()
 
     def _load_templates(self, templates_dir: Path):
         """Load character templates from a directory."""
@@ -120,12 +122,34 @@ class PokemonOCR:
             template = cv2.imread(str(template_path), cv2.IMREAD_GRAYSCALE)
 
             if template is not None:
+                # Precompute variance for fast filtering during matching
+                variance = float(np.var(template))
                 self.templates[char] = CharacterTemplate(
                     char=char,
                     template=template,
                     width=template.shape[1],
-                    height=template.shape[0]
+                    height=template.shape[0],
+                    variance=variance
                 )
+
+    def _sort_templates_by_frequency(self):
+        """Sort templates so common characters are checked first (for early exit)."""
+        # Character frequency in English/Italian text (approximate)
+        frequency = {
+            'e': 100, 'a': 95, 'i': 90, 'o': 85, 'n': 80, 't': 75, 'r': 70,
+            's': 65, 'l': 60, 'c': 55, 'u': 50, 'd': 45, 'p': 40, 'm': 35,
+            ' ': 100,  # Space is very common
+            '.': 30, ',': 25, 'h': 30, 'g': 25, 'b': 20, 'f': 15, 'v': 15,
+            'è': 20, 'é': 15, 'à': 15, 'ò': 10, 'ù': 10, 'ì': 10,  # Italian accents
+        }
+        # Sort by frequency (highest first), unknown chars get 0
+        sorted_items = sorted(
+            self.templates.items(),
+            key=lambda x: frequency.get(x[0].lower(), 0),
+            reverse=True
+        )
+        # Rebuild dict in sorted order (Python 3.7+ maintains insertion order)
+        self.templates = dict(sorted_items)
 
     def _filename_to_char(self, filename: str) -> str:
         """Convert a filename to its character."""
@@ -369,7 +393,7 @@ class PokemonOCR:
         for stretch in stretch_factors:
             for char, template in self.templates.items():
                 # Skip low-variance templates
-                if np.var(template.template) < 500:
+                if template.variance < 500:
                     continue
 
                 # Stretch template vertically
@@ -500,7 +524,7 @@ class PokemonOCR:
         for stretch in stretch_factors:
             for char, template in self.templates.items():
                 # Skip low-variance templates (mostly white/uniform)
-                if np.var(template.template) < 500:
+                if template.variance < 500:
                     continue
 
                 # Need enough width for template
@@ -533,6 +557,10 @@ class PokemonOCR:
                     score = result[0, 0]  # Single point result for same-size images
 
                     if score >= self.MATCH_THRESHOLD:
+                        # Early exit for very high scores
+                        if score > 0.98:
+                            return (char, score, template)
+
                         if best_char is None:
                             best_score = score
                             best_char = char
