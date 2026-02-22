@@ -290,27 +290,32 @@ if __name__ == "__main__":
 
     dialogues, fps = extract_dialogues(video_path, max_seconds)
 
-    print(f"\nFound {len(dialogues)} dialogues:")
-    print("=" * 60)
-
     output_lines = []
+    total_chars = 0
     for d in dialogues:
         # No timestamps - just the dialogue text
         # Line2 is vertically aligned with line1 (no indent)
         output_lines.append(d['line1'])
+        total_chars += len(d['line1'])
         # Output scrolled lines as separate lines (not concatenated)
         if d.get('scroll_lines'):
             for scroll_line in d['scroll_lines']:
                 output_lines.append(scroll_line)
+                total_chars += len(scroll_line)
         if d['line2']:
             output_lines.append(d['line2'])
+            total_chars += len(d['line2'])
         output_lines.append("")
 
     output_text = "\n".join(output_lines)
-    print(output_text)
 
     # Save to file
     output_file = Path(video_path).stem + "_dialogue.txt"
     with open(output_file, 'w') as f:
         f.write(output_text)
-    print(f"\nSaved to {output_file}")
+
+    # Print summary
+    text_seconds = total_chars / 60
+    print(f"\nFound {len(dialogues)} dialogues")
+    print(f"Total characters: {total_chars} ({text_seconds:.2f} seconds of text)")
+    print(f"Saved to: {output_file}")
