@@ -147,6 +147,7 @@ class PokemonOCR:
             "tilde_inverted": "~",  # Same character, different rendering
             "ellipsis": "…",
             "middot": "·",
+            "pokedollar": "₽",
             # Accented characters (lowercase)
             "a_grave": "à",
             "e_grave": "è",
