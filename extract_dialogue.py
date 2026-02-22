@@ -20,7 +20,7 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
         max_seconds: Maximum seconds to process (None = entire video)
 
     Returns:
-        List of dialogue dicts with 'frame', 'line1', 'line2' keys
+        List of dialogue dicts with 'frame', 'line1', 'line2', 'is_slow' keys
     """
     ocr = create_ocr()
 
@@ -39,10 +39,10 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
             max_frames = min(max_frames, int(max_seconds * video.fps))
 
         dialogues = []
-        max_text = ('', '')
-        max_len = 0
-        max_frame = 0
+        current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'has_marker': False}
         textbox_was_open = False
+        scroll_base = ''  # The text that scrolled up, to be prepended to new line2
+        frames_since_marker = 0  # Count frames since we saw marker
 
         for frame_num in range(max_frames):
             frame = video.get_frame(frame_num)
@@ -54,66 +54,112 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
             state = detector.detect_state(normalized)
 
             if state == TextboxState.OPEN:
-                line1 = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
-                line2 = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+                # Extract text lines
+                line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+                line2_img = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
 
-                text1 = ocr.recognize_line(line1)
-                text2 = ocr.recognize_line(line2)
+                text1 = ocr.recognize_line(line1_img).strip()  # Strip leading/trailing spaces
+                text2 = ocr.recognize_line(line2_img).strip()
+
+                # Check for continue marker (indicates slow text completion)
+                has_marker = detector.has_continue_marker(normalized)
+                if has_marker:
+                    current_dialogue['has_marker'] = True
+                    frames_since_marker = 0
+
+                # Detect scroll: current dialogue's line2 became current line1
+                # This means the text scrolled up
+                is_scroll = False
+                old_line2 = current_dialogue.get('line2', '')
+                if old_line2 and text1 and not scroll_base:
+                    # Check if line1 matches the dialogue's line2 (scroll happened)
+                    if text1 == old_line2 or (len(old_line2) > 10 and text1.startswith(old_line2[:10])):
+                        is_scroll = True
+                        scroll_base = old_line2  # Save the scrolled text to prepend later
+
+                # Detect new dialogue: text reset to short/empty
                 current_len = len(text1) + len(text2)
+                prev_len = len(current_dialogue['line1']) + len(current_dialogue['line2'])
 
-                # Detect new dialogue: text got much shorter (reset)
-                if current_len < max_len - 10 and max_len > 15:
-                    if max_text[0]:
-                        dialogues.append({
-                            'frame': max_frame,
-                            'line1': max_text[0],
-                            'line2': max_text[1]
-                        })
-                    max_text = ('', '')
-                    max_len = 0
+                # Dialogue reset if: text got much shorter OR content completely changed
+                # Use relative threshold: text dropped by more than 60%
+                is_reset = False
+                if prev_len > 5:  # Only check if we had meaningful text before
+                    if current_len < prev_len * 0.4:  # Dropped by more than 60%
+                        is_reset = True
+                    elif current_len < 3 and prev_len > 5:  # Reset to very short
+                        is_reset = True
 
-                # Track the longest/most complete text
-                if current_len > max_len:
-                    max_text = (text1, text2)
-                    max_len = current_len
-                    max_frame = frame_num
+                if is_reset:
+                    # Text got much shorter - save previous dialogue if it had marker
+                    if current_dialogue['line1'] and current_dialogue['has_marker']:
+                        dialogues.append(current_dialogue.copy())
+                    # Start new dialogue
+                    current_dialogue = {'line1': '', 'line2': '', 'frame': frame_num, 'has_marker': False}
+                    scroll_base = ''  # Reset scroll state
+
+                # Update current dialogue with more complete text
+                if is_scroll or scroll_base:
+                    # In scroll mode - keep line1 fixed, update line2 with scroll_base + text2
+                    if text2:
+                        new_line2 = scroll_base + " " + text2
+                        # Only update if this is longer than what we have
+                        if len(new_line2) > len(current_dialogue.get('line2', '')):
+                            current_dialogue['line2'] = new_line2
+                            current_dialogue['frame'] = frame_num
+                elif not is_reset:
+                    # Normal update - keep the longest/most complete text
+                    if current_len >= prev_len:
+                        current_dialogue['line1'] = text1
+                        current_dialogue['line2'] = text2
+                        current_dialogue['frame'] = frame_num
 
                 textbox_was_open = True
+                frames_since_marker += 1
 
-            elif state == TextboxState.CLOSED and textbox_was_open:
-                if max_text[0]:
-                    dialogues.append({
-                        'frame': max_frame,
-                        'line1': max_text[0],
-                        'line2': max_text[1]
-                    })
-                max_text = ('', '')
-                max_len = 0
+            elif state == TextboxState.SCROLLING:
+                # Still track scrolling state
+                textbox_was_open = True
+                frames_since_marker += 1
+
+            elif textbox_was_open:
+                # Textbox just closed - save current dialogue if it had marker
+                if current_dialogue['line1'] and current_dialogue['has_marker']:
+                    dialogues.append(current_dialogue.copy())
+                current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'has_marker': False}
                 textbox_was_open = False
+                scroll_base = ''  # Reset scroll state
+                frames_since_marker = 0
 
             if frame_num % 1000 == 0:
                 print(f"  Processing frame {frame_num}/{max_frames}...")
 
         # Don't forget remaining text
-        if max_text[0]:
-            dialogues.append({
-                'frame': max_frame,
-                'line1': max_text[0],
-                'line2': max_text[1]
-            })
+        if current_dialogue['line1'] and current_dialogue['has_marker']:
+            dialogues.append(current_dialogue.copy())
 
-    # Deduplicate: keep most complete version when line1 matches
+    # Deduplicate and merge scrolling dialogues
     deduped = []
     for d in dialogues:
-        # Check if this is a more complete version of the previous dialogue
-        if deduped and d['line1'] == deduped[-1]['line1']:
-            # Keep the one with more text in line2
-            if len(d['line2']) > len(deduped[-1]['line2']):
+        if not deduped:
+            deduped.append(d)
+            continue
+
+        prev = deduped[-1]
+
+        # Check if this is a scroll continuation (line1 matches prev line2)
+        if d['line1'] == prev.get('line2', ''):
+            # This is a scroll - merge: keep prev line1, use new line2
+            prev['line2'] = d['line2']
+            prev['frame'] = d['frame']
+        elif d['line1'] == prev['line1']:
+            # Same line1 - keep the one with more text in line2
+            if len(d['line2']) > len(prev['line2']):
                 deduped[-1] = d
-        elif deduped and deduped[-1]['line1'].startswith(d['line1'][:20]):
+        elif prev['line1'].startswith(d['line1'][:20]) if len(d['line1']) >= 20 else False:
             # Previous was more complete, skip this one
             pass
-        elif deduped and d['line1'].startswith(deduped[-1]['line1'][:20]):
+        elif d['line1'].startswith(prev['line1'][:20]) if len(prev['line1']) >= 20 else False:
             # This one is more complete, replace
             deduped[-1] = d
         else:

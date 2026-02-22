@@ -26,10 +26,10 @@ class TextboxRegion:
     height: int = 48
 
     # Text area within the textbox (excluding borders)
-    text_x: int = 13
-    text_y: int = 152
+    text_x: int = 14
+    text_y: int = 155  # Text line 1 starts at y=155
     text_width: int = 220
-    text_height: int = 33
+    text_height: int = 30  # Covers line 1 (155-169) and line 2 (171-185)
 
     # Line positions (relative to text_y)
     line1_y: int = 0
@@ -193,3 +193,40 @@ class TextboxDetector:
         # A character is roughly 8x16 pixels = 128 pixels
         # Allow some variance: 50-500 changed pixels indicates one character
         return 50 < changed_pixels < 500
+
+    def has_continue_marker(self, screen: np.ndarray) -> bool:
+        """
+        Check if the "press button to continue" marker is visible.
+
+        This marker appears at the bottom-right of the textbox when slow text
+        has finished typing and the player can press a button to continue.
+        It's an L-shaped indicator at coordinates (228-248, 182-192).
+
+        Args:
+            screen: Top screen image in DS native resolution (256x192, BGR)
+
+        Returns:
+            True if the continue marker is present (slow text complete)
+        """
+        # Marker region: x=228-248, y=182-192 (20x10 pixels)
+        marker_region = screen[182:192, 228:248]
+
+        # Convert to grayscale
+        if len(marker_region.shape) == 3:
+            gray = cv2.cvtColor(marker_region, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = marker_region
+
+        # The marker has dark pixels forming an L-shape
+        # Check right edge (should have mostly dark pixels)
+        right_edge = gray[:, -2:]  # Last 2 columns
+        right_dark = np.sum(right_edge < 180)
+
+        # Check bottom edge (should have mostly dark pixels)
+        bottom_edge = gray[-3:, :]  # Last 3 rows
+        bottom_dark = np.sum(bottom_edge < 180)
+
+        # Marker is present if both edges have significant dark pixels
+        # Right edge: 10 rows x 2 cols = 20 pixels, expect >12 dark
+        # Bottom edge: 3 rows x 20 cols = 60 pixels, expect >40 dark
+        return right_dark > 12 and bottom_dark > 40
