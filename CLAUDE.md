@@ -100,7 +100,7 @@ python extract_dialogue.py dp-any-gimmy.mp4
 python tests/test_benchmark.py
 ```
 
-This test verifies that dialogue extraction output matches the expected benchmark for the first 4:58 of `dp-any-scoa.mp4`. The test must pass before committing changes.
+This test verifies that dialogue extraction output matches the expected benchmark for the first 5:45 of `dp-any-scoa.mp4`. The test must pass before committing changes.
 
 ### Benchmark Files
 - `tests/benchmark/dp-any-scoa_first_5min_expected.txt` - Expected output (90 dialogues)

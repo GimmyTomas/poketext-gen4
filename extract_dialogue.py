@@ -93,11 +93,17 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
 
                 # Detect scroll: current dialogue's line2 became current line1
                 # This means the text scrolled up
+                # A scroll occurs when: new line1 == old line2 AND line1 actually changed
                 is_scroll = False
+                old_line1 = current_dialogue.get('line1', '')
                 old_line2 = current_dialogue.get('line2', '')
                 if old_line2 and text1 and not scroll_base:
                     # Check if line1 matches the dialogue's line2 (scroll happened)
-                    if text1 == old_line2 or (len(old_line2) > 10 and text1.startswith(old_line2[:10])):
+                    # Also verify line1 actually changed (to avoid false positives when line1==line2)
+                    line1_changed = (text1 != old_line1)
+                    line1_matches_old_line2 = (text1 == old_line2 or
+                                               (len(old_line2) > 10 and text1.startswith(old_line2[:10])))
+                    if line1_changed and line1_matches_old_line2:
                         is_scroll = True
                         scroll_base = old_line2  # Save the scrolled text for separate line output
 
@@ -122,10 +128,19 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 # Check for content change: line1 completely different from previous
                 # This catches cases where text changes to new dialogue without length drop
                 # BUT skip this check if it's a scroll (where old line2 became new line1)
-                if prev_line1 and text1 and len(prev_line1) >= 5 and len(text1) >= 5 and not is_scroll:
-                    # Check if they share a common prefix (first 5 chars)
-                    if prev_line1[:5] != text1[:5]:
-                        # Content changed - this is a new dialogue
+                if prev_line1 and text1 and not is_scroll:
+                    content_different = False
+                    if len(prev_line1) >= 5 and len(text1) >= 5:
+                        # For longer text, check prefix
+                        if prev_line1[:5] != text1[:5]:
+                            content_different = True
+                    elif len(prev_line1) >= 3 and text_growth_count >= 3:
+                        # For short text (3+ chars), check if content is completely different
+                        # AND previous dialogue had significant growth (3+ frames of incremental growth)
+                        # This saves short dialogues like "..." before they get overwritten
+                        if not text1.startswith(prev_line1) and not prev_line1.startswith(text1):
+                            content_different = True
+                    if content_different:
                         is_content_change = True
                         is_reset = True
 
@@ -141,9 +156,8 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                     prev_text_len = 0
                     text_growth_count = 0
 
-                    # If this was a content change (not reset to empty), store the new text
-                    if is_content_change:
-                        # Store new text in current_dialogue
+                    # Store the new text (whether from content change or length drop)
+                    if text1 or text2:
                         current_dialogue['line1'] = text1
                         current_dialogue['line2'] = text2
                         current_dialogue['frame'] = frame_num

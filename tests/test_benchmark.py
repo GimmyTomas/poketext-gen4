@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 # Test configuration
 TEST_VIDEO = "dp-any-scoa.mp4"
-TEST_DURATION = 298  # 4:58 seconds
+TEST_DURATION = 345  # 5:45 seconds
 EXPECTED_OUTPUT = Path(__file__).parent / "benchmark" / "dp-any-scoa_first_5min_expected.txt"
 
 
