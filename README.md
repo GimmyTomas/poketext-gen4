@@ -17,7 +17,7 @@ The first working version is complete for Diamond/Pearl with Western languages (
 ### Working Features
 - Automatic screen layout detection (handles various video resolutions)
 - Textbox state detection (open, closed, scrolling)
-- Template-based OCR with 97 character templates
+- Template-based OCR with 122 character templates
 - Slow text vs instant text detection
 - Scrolling text handling
 - Big text support (2x vertically stretched text like "Pum!!!", "Thud!!")

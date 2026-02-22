@@ -13,7 +13,7 @@ First working version for Diamond/Pearl with Western languages. All core feature
 - [x] Screen layout auto-detection (top screen position, scale factor)
 - [x] Textbox state detection (open/closed/scrolling)
 - [x] Text region extraction (normalized to DS 256x192)
-- [x] 97 Western character templates (A-Z, a-z, 0-9, punctuation, accented)
+- [x] 122 Western character templates (A-Z, a-z, 0-9, punctuation, accented, symbols)
 - [x] Template matching OCR with sliding window
 - [x] Slow vs instant text detection (via text growth patterns)
 - [x] Scrolling text handling (outputs as separate lines)
@@ -54,7 +54,7 @@ BIG_TEXT_STRETCH = 2.0      # Vertical stretch factor for big text
 - `src/screen.py` - Screen layout detection
 - `src/textbox.py` - Textbox state detection
 - `src/ocr.py` - Template matching OCR (normal + big text)
-- `templates/western/` - 97 character template images
+- `templates/western/` - 122 character template images
 - `legacy-code/` - Original C++ implementation
 
 ### Sample Videos
