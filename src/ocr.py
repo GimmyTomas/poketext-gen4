@@ -59,6 +59,7 @@ class CharacterWidths:
 
         # Special characters
         '♀': 6, '♂': 6, '×': 5, '…': 7, '·': 3, '«': 6,
+        '■': 8,  # Pocket icons
     }
 
     DEFAULT_WIDTH = 5
@@ -221,6 +222,11 @@ class PokemonOCR:
             "astonished_face": "😮",
             "angry_face": "😠",
             "sleeping_zz": "💤",
+            # Italian quote variants
+            "quote_open_low": '"',  # Low opening quote (Italian style) - output as standard "
+            # Pocket/bag icons (output as black square)
+            "pocket_medicine": "■",
+            "pocket_keyitems": "■",
         }
 
         if filename in special_chars:
@@ -245,7 +251,11 @@ class PokemonOCR:
             Recognized text string
         """
         if len(line_image.shape) == 3:
-            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
+            # Preprocess: darken blue pixels before grayscale conversion
+            # This helps detect blue icons (pocket symbols) that would otherwise
+            # become white/invisible in grayscale
+            processed = self._darken_blue_pixels(line_image)
+            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 
@@ -297,7 +307,8 @@ class PokemonOCR:
             Recognized text string
         """
         if len(line_image.shape) == 3:
-            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
+            processed = self._darken_blue_pixels(line_image)
+            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 
@@ -498,6 +509,36 @@ class PokemonOCR:
                 return max(0, x - 2)
         return 0  # Default to start if no text found
 
+    def _darken_blue_pixels(self, image: np.ndarray) -> np.ndarray:
+        """
+        Darken blue pixels so they're visible after grayscale conversion.
+
+        Pokemon Gen 4 uses blue icons for pocket/bag categories. These icons
+        become nearly white when converted to grayscale because blue has high
+        luminance. This method detects blue pixels and darkens them.
+
+        Args:
+            image: BGR image
+
+        Returns:
+            Modified BGR image with blue pixels darkened
+        """
+        result = image.copy()
+
+        # Split into BGR channels and convert to int16 to avoid overflow
+        b = result[:, :, 0].astype(np.int16)
+        g = result[:, :, 1].astype(np.int16)
+        r = result[:, :, 2].astype(np.int16)
+
+        # Detect blue pixels: B channel is high (>150), and significantly higher than R and G
+        # This matches the blue pocket icons while avoiding other colors
+        blue_mask = (b > 150) & (b > r + 40) & (b > g + 40)
+
+        # Darken blue pixels by setting them to dark gray
+        result[blue_mask] = [80, 80, 80]
+
+        return result
+
     def _find_best_match(self, gray: np.ndarray, x: int, try_stretched: bool = False) -> Optional[Tuple[str, float, CharacterTemplate]]:
         """
         Find the best matching template at position x.
@@ -557,8 +598,10 @@ class PokemonOCR:
                     score = result[0, 0]  # Single point result for same-size images
 
                     if score >= self.MATCH_THRESHOLD:
-                        # Early exit for very high scores
-                        if score > 0.98:
+                        # Early exit for very high scores, but only if template is wide enough
+                        # This prevents narrow templates (like ') from matching part of a
+                        # wider character (like „) and triggering early exit
+                        if score > 0.99 and template.width >= 5:
                             return (char, score, template)
 
                         if best_char is None:
@@ -600,7 +643,8 @@ class PokemonOCR:
             List of (character, confidence) tuples
         """
         if len(line_image.shape) == 3:
-            gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
+            processed = self._darken_blue_pixels(line_image)
+            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
 

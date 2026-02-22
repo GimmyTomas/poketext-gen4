@@ -64,11 +64,14 @@ BIG_TEXT_STRETCH = 2.0      # Vertical stretch factor for big text
 ## Usage
 
 ```bash
-# Extract dialogue from first 3 minutes
-python extract_dialogue.py dp-any-gimmy.mp4 180
-
 # Extract entire video
 python extract_dialogue.py dp-any-gimmy.mp4
+
+# Extract first 3 minutes
+python extract_dialogue.py dp-any-gimmy.mp4 180
+
+# Extract segment from 1:00 to 2:00
+python extract_dialogue.py dp-any-gimmy.mp4 60 120
 ```
 
 ## Text Detection Rules

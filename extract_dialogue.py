@@ -1,6 +1,7 @@
 """Extract dialogue text from Pokemon Gen 4 video."""
 
 import cv2
+import numpy as np
 import sys
 from pathlib import Path
 
@@ -12,12 +13,81 @@ from src.textbox import TextboxDetector, TextboxState
 from src.ocr import create_ocr
 
 
-def extract_dialogues(video_path: str, max_seconds: float = None):
+def is_garbage_text(text: str) -> bool:
+    """Check if text is garbage (OCR artifacts from transitions).
+
+    Returns True for text that appears to be OCR artifacts, such as:
+    - Mostly quotes/apostrophes (transition artifacts)
+    - Special characters with no alphanumeric (except valid punctuation like ...)
+    - Very short fragments with mostly symbols
+    - Text containing snowman or card symbols (OCR false positives)
+
+    Returns False for valid text including:
+    - Text with sufficient alphanumeric characters
+    - Ellipsis ... which is a valid dialogue
+    """
+    if not text:
+        return True
+
+    # Count alphanumeric characters
+    alnum_count = sum(1 for c in text if c.isalnum())
+
+    # Ellipsis (dots only) is valid dialogue
+    stripped = text.replace(' ', '')
+    if stripped and all(c == '.' for c in stripped):
+        return False
+
+    # Text containing snowman or card symbols is likely OCR false positive
+    garbage_symbols = set("☃☀☁☂♣♦♥♠□△◇")
+    if any(c in garbage_symbols for c in text):
+        return True
+
+    # Very short text (less than 3 alphanumeric chars) with symbols is likely garbage
+    # This catches fragments like "e ♣", "…, g,", "!□☃L "'", "g■"
+    if alnum_count < 3:
+        # Allow ellipsis-like punctuation even if short
+        if stripped and all(c in '.…' for c in stripped):
+            return False
+        # Very short with any non-word symbols is garbage
+        if len(text) <= 4:
+            return True
+        # Longer but mostly symbols is also garbage
+        if len(text) > alnum_count + 2:
+            return True
+
+    # Text must have at least some alphanumeric content to be valid
+    if alnum_count == 0:
+        # Mostly quotes/apostrophes is garbage (transition artifacts)
+        quote_chars = set("'\"''""\u2018\u2019\u201c\u201d")
+        quote_count = sum(1 for c in text if c in quote_chars)
+        if quote_count > len(text) * 0.5:
+            return True
+        # Non-alphanumeric text without dots is likely garbage
+        return True
+
+    return False
+
+
+def is_valid_textbox_region(line_img: np.ndarray) -> bool:
+    """Check if the line image has a valid textbox background.
+
+    A real textbox has a white background (mean > 200). Scenes without
+    textboxes (like shop interiors) have dark backgrounds.
+    """
+    if len(line_img.shape) == 3:
+        gray = cv2.cvtColor(line_img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = line_img
+    return np.mean(gray) > 200
+
+
+def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: float = None):
     """Extract all dialogue text from a video.
 
     Args:
         video_path: Path to the video file
-        max_seconds: Maximum seconds to process (None = entire video)
+        start_seconds: Start time in seconds (default: 0)
+        end_seconds: End time in seconds (None = entire video)
 
     Returns:
         List of dialogue dicts with 'frame', 'line1', 'line2', 'is_slow' keys
@@ -36,9 +106,10 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
         layout = detect_screen_layout(first_frame)
         detector = TextboxDetector()
 
-        max_frames = video.frame_count
-        if max_seconds:
-            max_frames = min(max_frames, int(max_seconds * video.fps))
+        start_frame = int(start_seconds * video.fps)
+        end_frame = video.frame_count
+        if end_seconds is not None:
+            end_frame = min(end_frame, int(end_seconds * video.fps))
 
         dialogues = []
         current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'is_slow': True}
@@ -48,7 +119,7 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
         text_growth_count = 0  # Count frames where text grew incrementally
 
         # Use sequential frame reading (much faster than seeking)
-        for frame_num, frame in video.frames(max_frames=max_frames):
+        for frame_num, frame in video.frames(start_frame=start_frame, max_frames=end_frame):
 
             top_screen = extract_top_screen(frame, layout)
             normalized = normalize_to_ds_resolution(top_screen, layout)
@@ -59,6 +130,11 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
                 line2_img = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
 
+                # Validate textbox region (must have white background)
+                if not is_valid_textbox_region(line1_img):
+                    # Not a real textbox - skip this frame
+                    continue
+
                 text1 = ocr.recognize_line(line1_img).strip()  # Strip leading/trailing spaces
                 text2 = ocr.recognize_line(line2_img).strip()
 
@@ -68,6 +144,9 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                     # Extract larger region for big text (30 pixels tall)
                     big_line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + BIG_CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
                     text1 = ocr.recognize_big_text(big_line1_img).strip()
+                    # Filter out garbage from big text detection (like transition artifacts)
+                    if is_garbage_text(text1):
+                        text1 = ""
 
                 # Detect instant vs slow text based on how text appears
                 # Slow text: grows incrementally (1-3 chars per frame)
@@ -128,7 +207,9 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 # Check for content change: line1 completely different from previous
                 # This catches cases where text changes to new dialogue without length drop
                 # BUT skip this check if it's a scroll (where old line2 became new line1)
-                if prev_line1 and text1 and not is_scroll:
+                # Also skip when in scroll mode (scroll_base set) - the visible line1 differs
+                # from stored line1 because we preserve the original for proper output
+                if prev_line1 and text1 and not is_scroll and not scroll_base:
                     content_different = False
                     if len(prev_line1) >= 5 and len(text1) >= 5:
                         # For longer text, check prefix
@@ -140,6 +221,15 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                         # This saves short dialogues like "..." before they get overwritten
                         if not text1.startswith(prev_line1) and not prev_line1.startswith(text1):
                             content_different = True
+                    elif len(prev_line1) >= 2 and text_growth_count >= 1:
+                        # Special case for very short dialogues like "..."
+                        # Only save punctuation-only short dialogues (like "...")
+                        # Don't save mixed text like ",L" which are transition artifacts
+                        prev_is_punct_only = not any(c.isalnum() for c in prev_line1)
+                        new_starts_with_letter = text1[0].isalnum() if text1 else False
+                        if prev_is_punct_only and new_starts_with_letter:
+                            # Punctuation dialogue (like "...") followed by text
+                            content_different = True
                     if content_different:
                         is_content_change = True
                         is_reset = True
@@ -148,7 +238,9 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                     # Save previous dialogue if it's slow text
                     # Slow text should have had incremental growth (text_growth_count > 0)
                     is_slow = text_growth_count > 0
-                    if current_dialogue['line1'] and is_slow:
+                    # Also filter out garbage text (artifacts from transitions)
+                    is_valid = not is_garbage_text(current_dialogue['line1'])
+                    if current_dialogue['line1'] and is_slow and is_valid:
                         dialogues.append(current_dialogue.copy())
                     # Start new dialogue
                     current_dialogue = {'line1': '', 'line2': '', 'frame': frame_num, 'is_slow': True}
@@ -199,6 +291,11 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
                 line2_img = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
 
+                # Validate textbox region (must have white background)
+                # This filters out false positives from game scenes
+                if not is_valid_textbox_region(line1_img):
+                    continue
+
                 text1 = ocr.recognize_line(line1_img).strip()
                 text2 = ocr.recognize_line(line2_img).strip()
 
@@ -207,6 +304,9 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 if not text1 and line1_img.min() < 120:
                     big_line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + BIG_CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
                     text1 = ocr.recognize_big_text(big_line1_img).strip()
+                    # Filter out garbage from big text detection
+                    if is_garbage_text(text1):
+                        text1 = ""
 
                 # Track text growth
                 current_text_len = len(text1) + len(text2)
@@ -229,7 +329,8 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 # Textbox just closed - save current dialogue if it's slow text
                 # Slow text should have had incremental growth
                 is_slow = text_growth_count > 0
-                if current_dialogue['line1'] and is_slow:
+                is_valid = not is_garbage_text(current_dialogue['line1'])
+                if current_dialogue['line1'] and is_slow and is_valid:
                     dialogues.append(current_dialogue.copy())
                 current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'is_slow': True}
                 textbox_was_open = False
@@ -238,10 +339,10 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 text_growth_count = 0
 
             if frame_num % 1000 == 0:
-                print(f"  Processing frame {frame_num}/{max_frames}...")
+                print(f"  Processing frame {frame_num}/{end_frame}...")
 
         # Don't forget remaining text (if it was slow text)
-        if current_dialogue['line1'] and text_growth_count > 0:
+        if current_dialogue['line1'] and text_growth_count > 0 and not is_garbage_text(current_dialogue['line1']):
             dialogues.append(current_dialogue.copy())
 
     # Deduplicate and merge scrolling dialogues
@@ -281,14 +382,37 @@ def format_time(frame: int, fps: float) -> str:
 
 
 if __name__ == "__main__":
-    video_path = sys.argv[1] if len(sys.argv) > 1 else "dp-any-gimmy.mp4"
-    max_seconds = float(sys.argv[2]) if len(sys.argv) > 2 else 180  # Default 3 minutes
+    if len(sys.argv) < 2:
+        print("Usage: python extract_dialogue.py <video.mp4> [end_seconds | start_seconds end_seconds]")
+        print()
+        print("Examples:")
+        print("  python extract_dialogue.py video.mp4           # Extract entire video")
+        print("  python extract_dialogue.py video.mp4 180       # Extract first 180 seconds")
+        print("  python extract_dialogue.py video.mp4 60 120    # Extract from 1:00 to 2:00")
+        sys.exit(1)
+
+    video_path = sys.argv[1]
+    start_seconds = 0.0
+    end_seconds = None
+
+    if len(sys.argv) == 3:
+        # Single time argument: extract from start to this time
+        end_seconds = float(sys.argv[2])
+    elif len(sys.argv) >= 4:
+        # Two time arguments: extract from start_time to end_time
+        start_seconds = float(sys.argv[2])
+        end_seconds = float(sys.argv[3])
 
     print(f"Extracting dialogue from: {video_path}")
-    print(f"Processing first {max_seconds} seconds...")
+    if start_seconds == 0 and end_seconds is None:
+        print("Processing entire video...")
+    elif start_seconds == 0:
+        print(f"Processing first {end_seconds} seconds...")
+    else:
+        print(f"Processing from {start_seconds}s to {end_seconds}s...")
     print()
 
-    dialogues, fps = extract_dialogues(video_path, max_seconds)
+    dialogues, fps = extract_dialogues(video_path, start_seconds, end_seconds)
 
     output_lines = []
     total_chars = 0
