@@ -200,7 +200,11 @@ class TextboxDetector:
 
         This marker appears at the bottom-right of the textbox when slow text
         has finished typing and the player can press a button to continue.
-        It's an L-shaped indicator at coordinates (228-248, 182-192).
+        It's a small triangle/arrow indicator inside the textbox.
+
+        The key difference from instant text (name entry boxes):
+        - Slow text: Has white textbox background with dark triangle marker
+        - Instant text: Has uniform gray (name entry box) with NO dark pixels
 
         Args:
             screen: Top screen image in DS native resolution (256x192, BGR)
@@ -208,8 +212,9 @@ class TextboxDetector:
         Returns:
             True if the continue marker is present (slow text complete)
         """
-        # Marker region: x=228-248, y=182-192 (20x10 pixels)
-        marker_region = screen[182:192, 228:248]
+        # Inner textbox marker region: y=175-186, x=230-248
+        # This is inside the textbox, avoiding the border
+        marker_region = screen[175:186, 230:248]
 
         # Convert to grayscale
         if len(marker_region.shape) == 3:
@@ -217,16 +222,16 @@ class TextboxDetector:
         else:
             gray = marker_region
 
-        # The marker has dark pixels forming an L-shape
-        # Check right edge (should have mostly dark pixels)
-        right_edge = gray[:, -2:]  # Last 2 columns
-        right_dark = np.sum(right_edge < 180)
+        # Check for white pixels (textbox background)
+        white_pixels = np.sum(gray > 230)
 
-        # Check bottom edge (should have mostly dark pixels)
-        bottom_edge = gray[-3:, :]  # Last 3 rows
-        bottom_dark = np.sum(bottom_edge < 180)
+        # Check for dark pixels (the triangle marker shape)
+        dark_pixels = np.sum(gray < 100)
 
-        # Marker is present if both edges have significant dark pixels
-        # Right edge: 10 rows x 2 cols = 20 pixels, expect >12 dark
-        # Bottom edge: 3 rows x 20 cols = 60 pixels, expect >40 dark
-        return right_dark > 12 and bottom_dark > 40
+        # Continue marker characteristics:
+        # - Has white pixels (>40) from textbox background showing
+        # - Has dark pixels (>=2) for the small triangle marker
+        # Instant text (name entry) has:
+        # - Uniform gray (name entry box), NO dark pixels
+        return white_pixels > 40 and dark_pixels >= 2
+

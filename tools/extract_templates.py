@@ -27,8 +27,8 @@ LINE_HEIGHT = 16  # Distance between line tops
 
 # Textbox text region coordinates (DS native 256x192)
 TEXT_X = 14       # X start of text
-TEXT_Y_LINE1 = 152  # Y start of first line
-TEXT_Y_LINE2 = 168  # Y start of second line
+TEXT_Y_LINE1 = 140  # Y start of first line (fixed from 152)
+TEXT_Y_LINE2 = 156  # Y start of second line (140 + 16)
 
 
 class CharacterWidths:

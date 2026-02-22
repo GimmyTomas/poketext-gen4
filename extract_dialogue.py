@@ -28,6 +28,7 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
     TEXT_Y_LINE2 = 168
     TEXT_X = 14
     CHAR_HEIGHT = 15
+    BIG_CHAR_HEIGHT = 30  # For 2x vertically stretched text like "Pum!!!"
 
     with VideoReader(video_path) as video:
         frame0 = video.get_frame(0)
@@ -39,10 +40,11 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
             max_frames = min(max_frames, int(max_seconds * video.fps))
 
         dialogues = []
-        current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'has_marker': False}
+        current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'is_slow': True}
         textbox_was_open = False
         scroll_base = ''  # The text that scrolled up, to be prepended to new line2
-        frames_since_marker = 0  # Count frames since we saw marker
+        prev_text_len = 0  # Track text length to detect instant vs slow text
+        text_growth_count = 0  # Count frames where text grew incrementally
 
         for frame_num in range(max_frames):
             frame = video.get_frame(frame_num)
@@ -61,11 +63,34 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 text1 = ocr.recognize_line(line1_img).strip()  # Strip leading/trailing spaces
                 text2 = ocr.recognize_line(line2_img).strip()
 
-                # Check for continue marker (indicates slow text completion)
-                has_marker = detector.has_continue_marker(normalized)
-                if has_marker:
-                    current_dialogue['has_marker'] = True
-                    frames_since_marker = 0
+                # Try big text detection if normal OCR finds nothing but there are dark pixels
+                # Big text is 2x vertically stretched (like "Pum!!!", "Thud!!!")
+                if not text1 and line1_img.min() < 120:
+                    # Extract larger region for big text (30 pixels tall)
+                    big_line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + BIG_CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+                    text1 = ocr.recognize_big_text(big_line1_img).strip()
+
+                # Detect instant vs slow text based on how text appears
+                # Slow text: grows incrementally (1-3 chars per frame)
+                # Instant text: appears all at once (large jump on first frame)
+                current_text_len = len(text1) + len(text2)
+                text_delta = current_text_len - prev_text_len
+
+                if text_delta > 0:
+                    # Text is growing
+                    if text_delta <= 4:
+                        # Small incremental growth = slow text
+                        text_growth_count += 1
+                    elif prev_text_len == 0 and text_delta >= 10:
+                        # Large initial appearance = might be instant text
+                        # But wait to see if it grows further
+                        pass
+
+                prev_text_len = current_text_len
+
+                # After a few frames of no growth, check if it was instant text
+                # Instant text: appears all at once, then doesn't change
+                # We'll check this when dialogue ends
 
                 # Detect scroll: current dialogue's line2 became current line1
                 # This means the text scrolled up
@@ -75,7 +100,7 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                     # Check if line1 matches the dialogue's line2 (scroll happened)
                     if text1 == old_line2 or (len(old_line2) > 10 and text1.startswith(old_line2[:10])):
                         is_scroll = True
-                        scroll_base = old_line2  # Save the scrolled text to prepend later
+                        scroll_base = old_line2  # Save the scrolled text for separate line output
 
                 # Detect new dialogue: text reset to short/empty
                 current_len = len(text1) + len(text2)
@@ -91,22 +116,36 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                         is_reset = True
 
                 if is_reset:
-                    # Text got much shorter - save previous dialogue if it had marker
-                    if current_dialogue['line1'] and current_dialogue['has_marker']:
+                    # Text got much shorter - save previous dialogue if it's slow text
+                    # Slow text should have had incremental growth (text_growth_count > 0)
+                    is_slow = text_growth_count > 0
+                    if current_dialogue['line1'] and is_slow:
                         dialogues.append(current_dialogue.copy())
                     # Start new dialogue
-                    current_dialogue = {'line1': '', 'line2': '', 'frame': frame_num, 'has_marker': False}
+                    current_dialogue = {'line1': '', 'line2': '', 'frame': frame_num, 'is_slow': True}
                     scroll_base = ''  # Reset scroll state
+                    prev_text_len = 0
+                    text_growth_count = 0
 
                 # Update current dialogue with more complete text
                 if is_scroll or scroll_base:
-                    # In scroll mode - keep line1 fixed, update line2 with scroll_base + text2
+                    # In scroll mode - keep ORIGINAL line1, track scrolled lines separately
+                    if is_scroll and not current_dialogue.get('scroll_line1'):
+                        # First scroll - save original line1 and line2
+                        current_dialogue['scroll_line1'] = current_dialogue['line1']
+                        # Store the pre-scroll line2 as a separate line
+                        if 'scroll_lines' not in current_dialogue:
+                            current_dialogue['scroll_lines'] = []
+                        current_dialogue['scroll_lines'].append(scroll_base)
+
                     if text2:
-                        new_line2 = scroll_base + " " + text2
-                        # Only update if this is longer than what we have
-                        if len(new_line2) > len(current_dialogue.get('line2', '')):
-                            current_dialogue['line2'] = new_line2
-                            current_dialogue['frame'] = frame_num
+                        # Track new line2 after scroll (will be output as separate line)
+                        current_dialogue['line2'] = text2
+                        current_dialogue['frame'] = frame_num
+
+                    # Keep original line1 (scroll_line1)
+                    if current_dialogue.get('scroll_line1'):
+                        current_dialogue['line1'] = current_dialogue['scroll_line1']
                 elif not is_reset:
                     # Normal update - keep the longest/most complete text
                     if current_len >= prev_len:
@@ -115,27 +154,51 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                         current_dialogue['frame'] = frame_num
 
                 textbox_was_open = True
-                frames_since_marker += 1
 
             elif state == TextboxState.SCROLLING:
-                # Still track scrolling state
+                # SCROLLING state - might be actual scrolling OR text like "Pum!!!"
+                # that extends into the detection strip area
+                # Still try to extract text
+                line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+                line2_img = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+
+                text1 = ocr.recognize_line(line1_img).strip()
+                text2 = ocr.recognize_line(line2_img).strip()
+
+                # Track text growth
+                current_text_len = len(text1) + len(text2)
+                text_delta = current_text_len - prev_text_len
+                if 0 < text_delta <= 4:
+                    text_growth_count += 1
+                prev_text_len = current_text_len
+
+                # Update if we have more text than before
+                current_len = len(text1) + len(text2)
+                prev_len = len(current_dialogue['line1']) + len(current_dialogue['line2'])
+                if current_len >= prev_len:
+                    current_dialogue['line1'] = text1
+                    current_dialogue['line2'] = text2
+                    current_dialogue['frame'] = frame_num
+
                 textbox_was_open = True
-                frames_since_marker += 1
 
             elif textbox_was_open:
-                # Textbox just closed - save current dialogue if it had marker
-                if current_dialogue['line1'] and current_dialogue['has_marker']:
+                # Textbox just closed - save current dialogue if it's slow text
+                # Slow text should have had incremental growth
+                is_slow = text_growth_count > 0
+                if current_dialogue['line1'] and is_slow:
                     dialogues.append(current_dialogue.copy())
-                current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'has_marker': False}
+                current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'is_slow': True}
                 textbox_was_open = False
                 scroll_base = ''  # Reset scroll state
-                frames_since_marker = 0
+                prev_text_len = 0
+                text_growth_count = 0
 
             if frame_num % 1000 == 0:
                 print(f"  Processing frame {frame_num}/{max_frames}...")
 
-        # Don't forget remaining text
-        if current_dialogue['line1'] and current_dialogue['has_marker']:
+        # Don't forget remaining text (if it was slow text)
+        if current_dialogue['line1'] and text_growth_count > 0:
             dialogues.append(current_dialogue.copy())
 
     # Deduplicate and merge scrolling dialogues
@@ -189,10 +252,15 @@ if __name__ == "__main__":
 
     output_lines = []
     for d in dialogues:
-        timestamp = format_time(d['frame'], fps)
-        output_lines.append(f"[{timestamp}] {d['line1']}")
+        # No timestamps - just the dialogue text
+        # Line2 is vertically aligned with line1 (no indent)
+        output_lines.append(d['line1'])
+        # Output scrolled lines as separate lines (not concatenated)
+        if d.get('scroll_lines'):
+            for scroll_line in d['scroll_lines']:
+                output_lines.append(scroll_line)
         if d['line2']:
-            output_lines.append(f"           {d['line2']}")
+            output_lines.append(d['line2'])
         output_lines.append("")
 
     output_text = "\n".join(output_lines)
