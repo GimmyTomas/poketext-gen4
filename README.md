@@ -77,9 +77,23 @@ src/
 ├── textbox.py         # Textbox state detection
 └── ocr.py             # Template matching OCR
 templates/
-└── western/           # 97 character template images
+└── western/           # 122 character template images
+tests/
+├── test_benchmark.py  # Regression test
+└── benchmark/         # Expected output files
+tools/                 # Template extraction utilities
 legacy-code/           # Original C++ implementation
 ```
+
+## Testing
+
+Run the benchmark test before making changes:
+
+```bash
+python tests/test_benchmark.py
+```
+
+This verifies that dialogue extraction matches the expected output for a 5:45 test segment.
 
 ## Output Format
 
@@ -102,3 +116,7 @@ C: Che succede?!?
 
 See `NOTES.md` for development notes and technical details.
 See `CLAUDE.md` for AI assistant context.
+
+## License
+
+MIT

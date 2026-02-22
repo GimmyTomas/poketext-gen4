@@ -42,3 +42,6 @@ test_sample_frame_*.png
 debug_*.png
 measure*_*.png
 templates_grid*.png
+
+# Generated dialogue output
+*_dialogue.txt
