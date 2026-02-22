@@ -101,21 +101,36 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                         is_scroll = True
                         scroll_base = old_line2  # Save the scrolled text for separate line output
 
-                # Detect new dialogue: text reset to short/empty
+                # Detect new dialogue: text reset to short/empty OR content completely changed
                 current_len = len(text1) + len(text2)
                 prev_len = len(current_dialogue['line1']) + len(current_dialogue['line2'])
+                prev_line1 = current_dialogue['line1']
 
-                # Dialogue reset if: text got much shorter OR content completely changed
-                # Use relative threshold: text dropped by more than 60%
+                # Dialogue reset conditions:
+                # 1. Text length dropped significantly (>60%)
+                # 2. Text is very short when it was long before
+                # 3. Content completely changed (line1 doesn't share common prefix)
                 is_reset = False
+                is_content_change = False
+
                 if prev_len > 5:  # Only check if we had meaningful text before
                     if current_len < prev_len * 0.4:  # Dropped by more than 60%
                         is_reset = True
                     elif current_len < 3 and prev_len > 5:  # Reset to very short
                         is_reset = True
 
+                # Check for content change: line1 completely different from previous
+                # This catches cases where text changes to new dialogue without length drop
+                # BUT skip this check if it's a scroll (where old line2 became new line1)
+                if prev_line1 and text1 and len(prev_line1) >= 5 and len(text1) >= 5 and not is_scroll:
+                    # Check if they share a common prefix (first 5 chars)
+                    if prev_line1[:5] != text1[:5]:
+                        # Content changed - this is a new dialogue
+                        is_content_change = True
+                        is_reset = True
+
                 if is_reset:
-                    # Text got much shorter - save previous dialogue if it's slow text
+                    # Save previous dialogue if it's slow text
                     # Slow text should have had incremental growth (text_growth_count > 0)
                     is_slow = text_growth_count > 0
                     if current_dialogue['line1'] and is_slow:
@@ -125,6 +140,15 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                     scroll_base = ''  # Reset scroll state
                     prev_text_len = 0
                     text_growth_count = 0
+
+                    # If this was a content change (not reset to empty), store the new text
+                    if is_content_change:
+                        # Store new text in current_dialogue
+                        current_dialogue['line1'] = text1
+                        current_dialogue['line2'] = text2
+                        current_dialogue['frame'] = frame_num
+                        # Track from current length - wait to see if it grows incrementally
+                        prev_text_len = current_len
 
                 # Update current dialogue with more complete text
                 if is_scroll or scroll_base:
