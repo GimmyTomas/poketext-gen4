@@ -37,9 +37,11 @@ BIG_CHAR_HEIGHT = 30  # For 2x vertically stretched text
 
 ### OCR Parameters
 ```python
-MATCH_THRESHOLD = 0.90   # Template matching threshold
-DARK_THRESHOLD = 130     # Dark pixel detection for character start
-SPACE_THRESHOLD = 245    # White space detection
+MATCH_THRESHOLD = 0.90      # Template matching threshold
+DARK_THRESHOLD = 130        # Dark pixel detection for character start
+SPACE_THRESHOLD = 245       # White space detection
+BIG_TEXT_THRESHOLD = 0.50   # Lower threshold for big text (2x stretched)
+BIG_TEXT_STRETCH = 2.0      # Vertical stretch factor for big text
 ```
 
 ### Key Files

@@ -165,6 +165,12 @@ def extract_dialogues(video_path: str, max_seconds: float = None):
                 text1 = ocr.recognize_line(line1_img).strip()
                 text2 = ocr.recognize_line(line2_img).strip()
 
+                # Try big text detection if normal OCR finds nothing but there are dark pixels
+                # Big text like "Pum!!!" triggers SCROLLING state because it extends into detection strip
+                if not text1 and line1_img.min() < 120:
+                    big_line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + BIG_CHAR_HEIGHT, TEXT_X:TEXT_X + 220]
+                    text1 = ocr.recognize_big_text(big_line1_img).strip()
+
                 # Track text growth
                 current_text_len = len(text1) + len(text2)
                 text_delta = current_text_len - prev_text_len

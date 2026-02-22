@@ -81,6 +81,12 @@ class PokemonOCR:
     # Big text (2x vertically stretched) height
     BIG_CHAR_HEIGHT = 30
 
+    # Stretch factor for big text (empirically determined from "Pum!!!")
+    BIG_TEXT_STRETCH = 2.0
+
+    # Lower threshold for big text (stretched templates are fuzzier)
+    BIG_TEXT_THRESHOLD = 0.50
+
     # Minimum match threshold for template matching
     # Higher threshold reduces false positives
     MATCH_THRESHOLD = 0.90
@@ -261,7 +267,7 @@ class PokemonOCR:
         2x vertically. We stretch the templates to match.
 
         Args:
-            line_image: Image of a single line of text (should be 30 pixels tall for big text)
+            line_image: Image of a single line of text (should be ~24 pixels tall for big text)
 
         Returns:
             Recognized text string
@@ -274,10 +280,10 @@ class PokemonOCR:
         if not self.templates:
             return ""
 
-        # Big text should be ~30 pixels tall (2x normal)
+        # Big text is ~24 pixels tall (2x normal)
         target_height = min(gray.shape[0], self.BIG_CHAR_HEIGHT)
 
-        # Find all character matches using 2x stretched templates
+        # Find all character matches using stretched templates
         matches = self._find_all_matches_big(gray, target_height)
 
         if not matches:
@@ -289,7 +295,7 @@ class PokemonOCR:
 
         for char, x, width, score in matches:
             gap = x - prev_end
-            if gap > 6 and result:  # Larger gap threshold for big text
+            if gap > 4 and result:  # Gap threshold for big text
                 result.append(' ')
             result.append(char)
             prev_end = x + width
@@ -298,7 +304,7 @@ class PokemonOCR:
 
     def _find_all_matches_big(self, gray: np.ndarray, target_height: int) -> List[Tuple[str, int, int, float]]:
         """
-        Find all character matches for big text using 2x stretched templates.
+        Find all character matches for big text using stretched templates.
 
         Args:
             gray: Grayscale line image
@@ -325,7 +331,7 @@ class PokemonOCR:
                 x += 1
                 continue
 
-            # Find best match using 2x stretched templates
+            # Find best match using stretched templates
             best_match = self._find_best_match_big(gray, x, target_height)
 
             if best_match:
@@ -339,7 +345,10 @@ class PokemonOCR:
 
     def _find_best_match_big(self, gray: np.ndarray, x: int, target_height: int) -> Optional[Tuple[str, float, int]]:
         """
-        Find the best matching 2x stretched template at position x.
+        Find the best matching stretched template at position x.
+
+        Tries multiple stretch factors around 2x to find the best match.
+        Prefers wider templates when scores are similar (within 0.1).
 
         Args:
             gray: Grayscale line image
@@ -354,43 +363,53 @@ class PokemonOCR:
         best_width = 0
         line_width = gray.shape[1]
 
-        for char, template in self.templates.items():
-            # Skip low-variance templates
-            if np.var(template.template) < 500:
-                continue
+        # Try multiple stretch factors around 2x
+        stretch_factors = [1.8, 2.0, 2.2]
 
-            # Stretch template 2x vertically
-            stretched_height = min(template.height * 2, target_height)
-            if stretched_height < 10:
-                continue
+        for stretch in stretch_factors:
+            for char, template in self.templates.items():
+                # Skip low-variance templates
+                if np.var(template.template) < 500:
+                    continue
 
-            stretched = cv2.resize(template.template, (template.width, stretched_height),
-                                   interpolation=cv2.INTER_LINEAR)
+                # Stretch template vertically
+                stretched_height = int(template.height * stretch)
+                if stretched_height > target_height or stretched_height < 10:
+                    continue
 
-            # Need enough width for template
-            if x + template.width > line_width:
-                continue
+                stretched = cv2.resize(template.template, (template.width, stretched_height),
+                                       interpolation=cv2.INTER_LINEAR)
 
-            # Extract region to match
-            region = gray[:stretched_height, x:x + template.width]
+                # Need enough width for template
+                if x + template.width > line_width:
+                    continue
 
-            if region.shape[0] != stretched_height or region.shape[1] != template.width:
-                continue
+                # Extract region to match
+                region = gray[:stretched_height, x:x + template.width]
 
-            # Template matching
-            result = cv2.matchTemplate(region, stretched, cv2.TM_CCOEFF_NORMED)
+                if region.shape[0] != stretched_height or region.shape[1] != template.width:
+                    continue
 
-            if result.size > 0:
-                score = result[0, 0]
+                # Template matching
+                result = cv2.matchTemplate(region, stretched, cv2.TM_CCOEFF_NORMED)
 
-                # Use slightly lower threshold for big text (stretched templates are fuzzier)
-                if score >= 0.85:
-                    if score > best_score:
+                if result.size > 0:
+                    score = result[0, 0]
+
+                    # Prefer wider templates when scores are close
+                    # This prevents narrow chars (!, i) from matching partial patterns
+                    if score > best_score + 0.1:
+                        # Clear winner
+                        best_score = score
+                        best_char = char
+                        best_width = template.width
+                    elif score > best_score - 0.1 and template.width > best_width:
+                        # Similar score but wider template - prefer it
                         best_score = score
                         best_char = char
                         best_width = template.width
 
-        if best_char is not None and best_score >= 0.85:
+        if best_char is not None and best_score >= self.BIG_TEXT_THRESHOLD:
             return (best_char, best_score, best_width)
         return None
 

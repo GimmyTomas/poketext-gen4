@@ -62,9 +62,9 @@
 
 5. **Instant text detection**: ✅ FIXED - Tracks text growth patterns to exclude instant text.
 
-## Pending/Investigating
+## All Issues Resolved
 
-1. **Big text (Pum!!!, Thud!!!)**: Code added to detect 2x vertically stretched text using `recognize_big_text()`. The big text doesn't appear in the first 3 minutes of dialogue - it may be a sound effect that appears outside the textbox area later in the game.
+6. **Big text (Pum!!!, Thud!!!)**: ✅ FIXED - Implemented 2x vertically stretched template matching. Works correctly for both Italian "Pum!!!" and English "Thud!!".
 
 ## Character Counting Rules
 1. Count only slow text characters
