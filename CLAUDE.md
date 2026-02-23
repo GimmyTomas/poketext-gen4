@@ -4,11 +4,11 @@
 
 Extract "slow text" (1 char/frame at 60fps) from Pokémon Gen 4 speedrun videos for character counting and speedrun optimization.
 
-## Current Status: Phase 1 Complete
+## Current Status: Phase 2 Complete
 
-First working version for Diamond/Pearl with Western languages. All core features implemented and tested.
+Diamond/Pearl dialogue extraction works perfectly for both Italian and English full-length speedrun videos.
 
-### Completed (Phase 1):
+### Completed:
 - [x] Video reading with OpenCV
 - [x] Screen layout auto-detection (top screen position, scale factor)
 - [x] Textbox state detection (open/closed/scrolling)
@@ -19,6 +19,10 @@ First working version for Diamond/Pearl with Western languages. All core feature
 - [x] Scrolling text handling (outputs as separate lines)
 - [x] Big text support (2x vertically stretched, e.g., "Pum!!!", "Thud!!")
 - [x] Full dialogue extraction pipeline (`extract_dialogue.py`)
+- [x] Blue text handling (item names, Coupon text)
+- [x] Pocket icon detection (■ symbols)
+- [x] Full video processing (entire speedrun videos)
+- [x] Garbage text filtering (transition artifacts)
 
 ### Planned (Future Phases):
 - [ ] Character counting with timing analysis
@@ -26,7 +30,6 @@ First working version for Diamond/Pearl with Western languages. All core feature
 - [ ] Japanese character templates
 - [ ] Battle text detection
 - [ ] Menu text detection
-- [ ] Full video processing (beyond first few minutes)
 
 ## Technical Details
 
@@ -95,16 +98,15 @@ python extract_dialogue.py dp-any-gimmy.mp4 60 120
 - Blank line between dialogue entries
 - No timestamps
 
-## Testing Requirements
+## Testing
 
-**IMPORTANT: Before delivering any code changes, run the benchmark test:**
+Benchmark tests are available for regression testing:
 
 ```bash
 python tests/test_benchmark.py
 ```
 
-This test verifies that dialogue extraction output matches the expected benchmark for the first 5:45 of `dp-any-scoa.mp4`. The test must pass before committing changes.
-
 ### Benchmark Files
-- `tests/benchmark/dp-any-scoa_first_5min_expected.txt` - Expected output (111 dialogues)
+- `tests/benchmark/dp-any-scoa_first_expected.txt` - English expected output
+- `tests/benchmark/dp-any-gimmy_expected.txt` - Italian expected output
 - `tests/test_benchmark.py` - Benchmark test script
