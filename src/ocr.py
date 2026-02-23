@@ -521,6 +521,10 @@ class PokemonOCR:
         Pokemon Gen 4 uses blue icons for pocket/bag categories. These icons
         need to be detected by color before grayscale conversion.
 
+        Important: This must distinguish between:
+        - Pocket icons: single blue square before text (e.g., "■KEY ITEMS")
+        - Blue text: multiple blue letters (e.g., "Mappa Città" in blue)
+
         Args:
             image: BGR image
 
@@ -538,28 +542,39 @@ class PokemonOCR:
         # Find contiguous blue regions (columns with blue pixels)
         blue_cols = np.any(blue_mask, axis=0)
 
-        icons = []
-        in_icon = False
-        icon_start = 0
+        # First pass: find all blue regions
+        regions = []
+        in_region = False
+        region_start = 0
 
         for x in range(len(blue_cols)):
-            if blue_cols[x] and not in_icon:
-                # Start of icon
-                in_icon = True
-                icon_start = x
-            elif not blue_cols[x] and in_icon:
-                # End of icon
-                in_icon = False
-                icon_width = x - icon_start
-                # Only count as icon if width is reasonable (4-12 pixels)
-                if 4 <= icon_width <= 12:
-                    icons.append((icon_start, icon_width))
+            if blue_cols[x] and not in_region:
+                in_region = True
+                region_start = x
+            elif not blue_cols[x] and in_region:
+                in_region = False
+                region_width = x - region_start
+                if region_width >= 4:  # Minimum width for a region
+                    regions.append((region_start, region_width))
 
-        # Handle icon at end of line
-        if in_icon:
-            icon_width = len(blue_cols) - icon_start
-            if 4 <= icon_width <= 12:
-                icons.append((icon_start, icon_width))
+        if in_region:
+            region_width = len(blue_cols) - region_start
+            if region_width >= 4:
+                regions.append((region_start, region_width))
+
+        # If there are multiple blue regions close together, it's likely blue text, not icons
+        # Pocket icons appear as a single isolated blue region
+        if len(regions) > 1:
+            # Check if regions are close together (within 15 pixels)
+            # If so, this is probably blue text
+            for i in range(len(regions) - 1):
+                gap = regions[i + 1][0] - (regions[i][0] + regions[i][1])
+                if gap < 15:
+                    # Regions are close together - this is blue text, not icons
+                    return []
+
+        # Filter to only return regions with reasonable icon width (4-12 pixels)
+        icons = [(x, w) for x, w in regions if 4 <= w <= 12]
 
         return icons
 

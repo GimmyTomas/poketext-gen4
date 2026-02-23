@@ -1680,9 +1680,6 @@ Sgomento!
 TURTWIG usa
 Azione!
 
-Cosa deve fare
-I?
-
 I usa
 Braciere!
 
@@ -2338,10 +2335,6 @@ G vince
 ₽432!
 
 Vedo...
-Prevedo...
-
-…a…...
-
 Prevedo...
 che subirai una sconfitta...
 

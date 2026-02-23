@@ -42,6 +42,31 @@ def is_garbage_text(text: str) -> bool:
     if any(c in garbage_symbols for c in text):
         return True
 
+    # Isolated pocket icon (■) without text is likely transition noise
+    # But valid text like "It ■" or "nella Tasca ■S" should be kept
+    # Only filter if the pocket icon is alone or with random characters
+    if '■' in text:
+        # Check if it's just the icon or icon with short noise
+        text_without_icon = text.replace('■', '').strip()
+        if len(text_without_icon) <= 2 and not any(c.isupper() for c in text_without_icon):
+            return True
+
+    # Short random lowercase text with punctuation is likely OCR noise
+    # Valid dialogue typically starts with capital letter or is proper text
+    # Examples of garbage: "pgp '", "ab ", "xyz"
+    # Examples of valid: "e così...", "di nuovo"
+    if len(stripped) <= 6 and stripped:
+        # Check if it's all lowercase with punctuation (no capitals, no numbers)
+        has_uppercase = any(c.isupper() for c in text)
+        has_digit = any(c.isdigit() for c in text)
+        has_common_punct = any(c in '.!?,' for c in text)
+        if not has_uppercase and not has_digit and not has_common_punct:
+            # Random lowercase letters with apostrophes/spaces - likely garbage
+            # Check for both straight and curly apostrophes
+            any_quote = any(c in "'\u2018\u2019" for c in text)
+            if alnum_count <= 4 and any_quote:
+                return True
+
     # Single letter fragments with special symbols are likely garbage
     # This catches fragments like "e ♣", "g■"
     # But allows valid short text like "G ...", "OK...", "No!", "Sì"
@@ -203,6 +228,19 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                 is_reset = False
                 is_content_change = False
 
+                # Handle empty frames during scroll animation
+                # When text temporarily disappears during scroll, don't reset the dialogue
+                # But only do this for slow text (text_growth_count > 0)
+                # Instant text (like battle menu) should be allowed to reset naturally
+                if current_len == 0 and prev_len > 0:
+                    # Check if this looks like a scroll animation after slow text
+                    # Must have: both lines filled AND text was growing incrementally (slow text)
+                    if current_dialogue['line1'] and current_dialogue['line2'] and text_growth_count > 0:
+                        # Likely scroll animation after slow text - preserve dialogue
+                        prev_text_len = 0
+                        continue
+                    # Otherwise this is a dialogue ending (possibly instant text) - let is_reset handle it
+
                 if prev_len > 5:  # Only check if we had meaningful text before
                     if current_len < prev_len * 0.4:  # Dropped by more than 60%
                         is_reset = True
@@ -282,7 +320,8 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                         current_dialogue['line1'] = current_dialogue['scroll_line1']
                 elif not is_reset:
                     # Normal update - keep the longest/most complete text
-                    if current_len >= prev_len:
+                    # Use > (not >=) to avoid replacing good text with corrupted transition frames
+                    if current_len > prev_len:
                         current_dialogue['line1'] = text1
                         current_dialogue['line2'] = text2
                         current_dialogue['frame'] = frame_num
@@ -321,9 +360,10 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                 prev_text_len = current_text_len
 
                 # Update if we have more text than before
+                # Use > (not >=) to avoid replacing good text with corrupted transition frames
                 current_len = len(text1) + len(text2)
                 prev_len = len(current_dialogue['line1']) + len(current_dialogue['line2'])
-                if current_len >= prev_len:
+                if current_len > prev_len:
                     current_dialogue['line1'] = text1
                     current_dialogue['line2'] = text2
                     current_dialogue['frame'] = frame_num
