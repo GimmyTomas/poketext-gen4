@@ -381,6 +381,7 @@ blaze new trails of adventure!”
 Well, isn't that just nifty!
 
 Lucas: Hi! I've been waiting for you!
+Please, come with me.
 The prof's waiting to see you.
 
 See? This is our Pokémon Research
@@ -932,6 +933,7 @@ avoid having their precious Pokémon
 hurt in battle, right?
 
 So, W, what brings you?
+Huh?
 You've got something for me?
 
 W delivered the Parcel.
@@ -2189,6 +2191,7 @@ Lass Briana sent
 out PACHIRISU!
 
 Trainer Cheryl sent
+out CHANSEY!
 Go! Z!
 
 The foe's PACHIRISU used
@@ -2316,6 +2319,7 @@ Psychic Elijah sent
 out ABRA!
 
 Trainer Cheryl sent
+out CHANSEY!
 Go! Z!
 
 Z used

@@ -36,6 +36,49 @@ class ScreenLayout:
         return abs(self.scale_factor - round(self.scale_factor)) < 0.01
 
 
+def _find_screen_boundary(frame: np.ndarray, expected_width: int) -> Optional[int]:
+    """
+    Find the left boundary of the DS screen using edge detection.
+
+    Some recordings have timer overlays (LiveSplit) that offset the DS screen.
+    This function finds strong vertical edges that might indicate screen boundaries.
+
+    Args:
+        frame: Video frame (BGR)
+        expected_width: Expected width of the DS top screen
+
+    Returns:
+        X coordinate of the left boundary, or None if no strong boundary found
+    """
+    height, width = frame.shape[:2]
+
+    # Expected x position (top screen on right edge)
+    expected_x = width - expected_width
+
+    # Convert to grayscale and find vertical edges
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobel_x = np.abs(sobel_x)
+
+    # Sum along columns to find strong vertical lines
+    col_edges = np.sum(sobel_x, axis=0)
+
+    # Look for the strongest edge in a wide region around expected boundary
+    search_start = max(0, expected_x - 100)
+    search_end = min(width, expected_x + 100)
+
+    if search_end > search_start:
+        search_region = col_edges[search_start:search_end]
+        max_edge_idx = np.argmax(search_region)
+        max_edge_val = search_region[max_edge_idx]
+
+        # Threshold: edge must be significantly strong (> 50% of max overall)
+        if max_edge_val > np.max(col_edges) * 0.5:
+            return search_start + max_edge_idx
+
+    return None
+
+
 def detect_screen_layout(frame: np.ndarray) -> ScreenLayout:
     """
     Detect the screen layout from a video frame.
@@ -93,7 +136,24 @@ def detect_screen_layout(frame: np.ndarray) -> ScreenLayout:
         left_width = split_2_3
 
         # The top screen width should be approximately scale * 256
-        if abs(right_width - top_screen_width) < abs(left_width - top_screen_width):
+        # Determine if simple detection would put screen on LEFT or RIGHT
+        would_be_right = abs(right_width - top_screen_width) < abs(left_width - top_screen_width)
+        simple_x = (width - top_screen_width) if would_be_right else 0
+
+        # Use edge detection to find the actual screen boundary
+        # This helps when there's a timer overlay (like LiveSplit) that offsets the screen
+        top_x = _find_screen_boundary(frame, top_screen_width)
+
+        # Only use edge detection result if it differs significantly from simple detection
+        # OR if simple detection would put screen at x=0 but edge detection finds otherwise
+        if top_x is not None and (abs(top_x - simple_x) > 10 or (simple_x == 0 and top_x > 10)):
+            return ScreenLayout(
+                top_screen_pos=ScreenPosition.RIGHT if top_x > 0 else ScreenPosition.LEFT,
+                top_screen_rect=(top_x, 0, top_screen_width, height),
+                bottom_screen_rect=(0, 0, top_x, height) if top_x > 0 else (top_screen_width, 0, width - top_screen_width, height),
+                scale_factor=estimated_scale
+            )
+        elif would_be_right:
             # Top screen is on the right
             return ScreenLayout(
                 top_screen_pos=ScreenPosition.RIGHT,

@@ -372,6 +372,7 @@ all'avventura!”
 Che emozione!
 
 Lucas: Ciao! Ti stavo aspettando.
+Vieni con me.
 Il professore vuole vederti.
 
 Vedi? Questo è il nostro Laboratorio di
@@ -946,6 +947,7 @@ evitare che i suoi preziosi Pokémon
 subiscano danni nella lotta, no?
 
 E allora, G, qual buon vento
+ti porta qui? Eh?
 Hai qualcosa per me?
 
 G consegna un Pacco.
@@ -1660,6 +1662,7 @@ Turno di WURMPLE, mandato in campo
 da Recluta, Galassia!
 
 Turno di TURTWIG, mandato in campo
+da Lucas, Allenatore!
 Vai, I!
 
 I usa

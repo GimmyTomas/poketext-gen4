@@ -73,9 +73,18 @@ class TextboxDetector:
         # Strip above first line (y=152 in original)
         self.top_strip_y = 152
 
-        # X range for strips
-        self.strip_x_start = 28
-        self.strip_x_end = 194  # 28 + 166
+        # X range for strips (center region only to avoid border pixels)
+        # HGSS has wider frame borders that get blended when scaling
+        self.strip_x_start = 80   # Skip left border area
+        self.strip_x_end = 176    # Skip right border area (96 pixel center strip)
+
+        # Tolerance for white strip detection (game-specific)
+        # DP needs strict tolerance (2%) to correctly detect scrolling
+        # HGSS needs looser tolerance (20%) due to frame border blending
+        if self.game == "hgss":
+            self.strip_tolerance = 0.20
+        else:
+            self.strip_tolerance = 0.02
 
     def detect_state(self, screen: np.ndarray) -> TextboxState:
         """
@@ -114,8 +123,10 @@ class TextboxDetector:
             # Middle strip not white - could be scrolling or different state
             return TextboxState.SCROLLING
 
-    def _is_strip_white(self, screen: np.ndarray, y: int, tolerance: float = 0.02) -> bool:
+    def _is_strip_white(self, screen: np.ndarray, y: int, tolerance: float = None) -> bool:
         """Check if a horizontal strip is mostly white."""
+        if tolerance is None:
+            tolerance = self.strip_tolerance
         strip = screen[y, self.strip_x_start:self.strip_x_end]
 
         # Check each pixel's RGB values

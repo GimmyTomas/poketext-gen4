@@ -18,6 +18,9 @@ ENGLISH_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-scoa_first_expe
 ITALIAN_VIDEO = "dp-any-gimmy.mp4"
 ITALIAN_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-gimmy_expected.txt"
 
+HGSS_VIDEO = "hgss-gless-werster.mp4"
+HGSS_EXPECTED_FIRST_MIN = Path(__file__).parent / "benchmark" / "hgss-gless-werster_expected_first_min.txt"
+
 # Maximum allowed character differences (complete match with small tolerance)
 MAX_DIFF_CHARS = 5
 
@@ -74,8 +77,18 @@ def count_differences(actual: str, expected: str) -> tuple[int, list]:
 
 
 def test_video(video_path: str, expected_path: Path, video_name: str,
-               start: float = None, end: float = None) -> bool:
+               start: float = None, end: float = None,
+               prefix_match: bool = False) -> bool:
     """Test a video extraction against expected output.
+
+    Args:
+        video_path: Path to video file
+        expected_path: Path to expected output file
+        video_name: Display name for the video
+        start: Start time in seconds
+        end: End time in seconds
+        prefix_match: If True, only compare against the prefix of expected output
+                      (for quick tests that extract partial videos)
 
     Returns True if test passes (diff <= MAX_DIFF_CHARS).
     """
@@ -98,6 +111,12 @@ def test_video(video_path: str, expected_path: Path, video_name: str,
     print(f"Testing {video_name}{time_desc}...")
     actual = run_extraction(video_path, start, end)
     expected = expected_path.read_text()
+
+    if prefix_match:
+        # For partial video tests, only compare the actual output length
+        # against the same-length prefix of the expected output
+        expected = expected[:len(actual)]
+        print(f"  (prefix match: comparing {len(actual)} chars)")
 
     diff_count, mismatches = count_differences(actual, expected)
 
@@ -181,13 +200,53 @@ def test_full():
     success2 = test_video(ITALIAN_VIDEO, ITALIAN_EXPECTED, "Italian (dp-any-gimmy)")
     print()
 
-    return success1 and success2
+    # HGSS: only first 60s of expected output exists
+    success3 = test_video(
+        HGSS_VIDEO, HGSS_EXPECTED_FIRST_MIN, "HGSS (hgss-gless-werster)",
+        end=60
+    )
+    print()
+
+    return success1 and success2 and success3
+
+
+def test_fast(duration: float = 60):
+    """Fast benchmark tests on first N seconds of each video.
+
+    Compares extracted output against the prefix of expected output.
+    Much faster than full tests while still catching regressions.
+    """
+    print(f"=== FAST BENCHMARK TESTS (first {duration}s) ===\n")
+
+    success1 = test_video(
+        ENGLISH_VIDEO, ENGLISH_EXPECTED, "English (dp-any-scoa)",
+        end=duration, prefix_match=True
+    )
+    print()
+
+    success2 = test_video(
+        ITALIAN_VIDEO, ITALIAN_EXPECTED, "Italian (dp-any-gimmy)",
+        end=duration, prefix_match=True
+    )
+    print()
+
+    success3 = test_video(
+        HGSS_VIDEO, HGSS_EXPECTED_FIRST_MIN, "HGSS (hgss-gless-werster)",
+        end=min(duration, 60)
+    )
+    print()
+
+    return success1 and success2 and success3
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--quick":
-        # Quick tests for development iteration
+        # Quick segment tests for specific edge cases
         success = test_quick()
+    elif len(sys.argv) > 1 and sys.argv[1] == "--fast":
+        # Fast benchmark on first 60s of videos
+        duration = float(sys.argv[2]) if len(sys.argv) > 2 else 60
+        success = test_fast(duration)
     else:
         # Full benchmark tests
         success = test_full()
