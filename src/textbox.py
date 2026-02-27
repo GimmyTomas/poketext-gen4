@@ -13,6 +13,7 @@ class TextboxState(Enum):
     OPEN_EMPTY = auto()       # Textbox open but empty (text about to appear)
     SCROLLING = auto()        # Text is scrolling to next line
     INSTANT = auto()          # Instant text (we ignore this)
+    POKEGEAR = auto()         # White text on blue/black background (HGSS phone calls)
 
 
 @dataclass
@@ -100,6 +101,9 @@ class TextboxDetector:
 
         # 1. Check bottom white line (must be white for textbox to be open)
         if not self._is_strip_white(screen, self.bottom_strip_y):
+            # Not a normal textbox — for HGSS, check for Pokégear
+            if self.game == "hgss" and self._is_pokegear_textbox(screen):
+                return TextboxState.POKEGEAR
             return TextboxState.CLOSED
 
         # 2. Check left border (must NOT be white for textbox to be open)
@@ -128,17 +132,87 @@ class TextboxDetector:
         if tolerance is None:
             tolerance = self.strip_tolerance
         strip = screen[y, self.strip_x_start:self.strip_x_end]
-
-        # Check each pixel's RGB values
-        white_pixels = 0
         total_pixels = strip.shape[0]
 
-        for pixel in strip:
-            b, g, r = pixel
-            if r > self.WHITE_THRESHOLD and g > self.WHITE_THRESHOLD and b > self.WHITE_THRESHOLD:
-                white_pixels += 1
+        # Vectorized: check all channels > WHITE_THRESHOLD
+        white_pixels = int(np.sum(np.all(strip > self.WHITE_THRESHOLD, axis=1)))
 
         return white_pixels > total_pixels * (1 - tolerance)
+
+    def _has_pokegear_blue(self, screen: np.ndarray, y: int, min_ratio: float = 0.50) -> bool:
+        """Check if a horizontal strip has strongly saturated blue pixels.
+
+        Pokégear blue is highly saturated (B=108, R=16, G=28). Uses strict
+        thresholds to reject near-grey pixels (bedroom walls) and light blue
+        (sky transitions).
+
+        Criteria: B > R+40, B > G+40, B > 80
+
+        Args:
+            screen: Top screen image (BGR)
+            y: Y coordinate of the strip
+            min_ratio: Minimum fraction of pixels that must be saturated blue
+
+        Returns:
+            True if enough pixels are strongly blue
+        """
+        strip = screen[y, self.strip_x_start:self.strip_x_end]
+        total_pixels = strip.shape[0]
+
+        b = strip[:, 0].astype(np.int16)
+        g = strip[:, 1].astype(np.int16)
+        r = strip[:, 2].astype(np.int16)
+
+        blue_mask = (b > r + 40) & (b > g + 40) & (b > 80)
+        blue_count = int(np.sum(blue_mask))
+        return blue_count > total_pixels * min_ratio
+
+    def _is_strip_dark(self, screen: np.ndarray, y: int, max_mean: int = 30) -> bool:
+        """Check if a horizontal strip is very dark (near-black).
+
+        Args:
+            screen: Top screen image (BGR)
+            y: Y coordinate of the strip
+            max_mean: Maximum mean brightness across all channels
+
+        Returns:
+            True if the strip is very dark
+        """
+        strip = screen[y, self.strip_x_start:self.strip_x_end]
+        return float(np.mean(strip)) < max_mean
+
+    def _is_pokegear_textbox(self, screen: np.ndarray) -> bool:
+        """Check if the screen shows a Pokégear phone call textbox.
+
+        Pokégear textbox has a blue-to-black gradient: the text area (y=168-183)
+        is black, while the area above the text (y=144-152) is blue. This gradient
+        distinguishes Pokégear from:
+        - Black screens (transitions): no blue at y=150
+        - Uniformly blue screens (intro): text area is also blue, not dark
+
+        Args:
+            screen: Top screen image in DS native resolution (256x192, BGR)
+
+        Returns:
+            True if this is a Pokégear textbox
+        """
+        # Quick rejection: y=150 must have strongly saturated blue pixels.
+        # Rejects black screens, near-grey bedroom walls, and light blue skies.
+        if not self._has_pokegear_blue(screen, 150):
+            return False
+
+        # Text area (y=183, y=168) must be very dark/black — NOT blue.
+        # This distinguishes from uniformly blue screens (intro transitions).
+        if not self._is_strip_dark(screen, self.bottom_strip_y):
+            return False
+        if not self._is_strip_dark(screen, self.mid_strip_y):
+            return False
+
+        # Left border must NOT be white (same check as normal textbox)
+        if self._is_left_border_white(screen):
+            return False
+
+        return True
 
     def _is_left_border_white(self, screen: np.ndarray) -> bool:
         """Check if left border of textbox area is white (indicating no textbox)."""

@@ -239,13 +239,14 @@ class PokemonOCR:
         # Direct character (single letter, number, or unicode)
         return filename
 
-    def recognize_line(self, line_image: np.ndarray, try_stretched: bool = False) -> str:
+    def recognize_line(self, line_image: np.ndarray, try_stretched: bool = False, invert: bool = False) -> str:
         """
         Recognize text from a line image using sliding window template matching.
 
         Args:
             line_image: Image of a single line of text (grayscale or BGR)
             try_stretched: If True, also try vertically stretched templates
+            invert: If True, invert grayscale (for white-on-dark text like Pokégear)
 
         Returns:
             Recognized text string
@@ -253,10 +254,16 @@ class PokemonOCR:
         blue_icon_positions = []
         if len(line_image.shape) == 3:
             # Detect blue icon positions before grayscale conversion
-            blue_icon_positions = self._detect_blue_icons(line_image)
+            # Skip blue icon detection when inverting (Pokégear has no pocket icons,
+            # and blue background would cause false positives)
+            if not invert:
+                blue_icon_positions = self._detect_blue_icons(line_image)
             gray = cv2.cvtColor(line_image, cv2.COLOR_BGR2GRAY)
         else:
             gray = line_image.copy()
+
+        if invert:
+            gray = 255 - gray
 
         if not self.templates:
             return ""

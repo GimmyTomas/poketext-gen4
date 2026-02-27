@@ -30,6 +30,10 @@ def is_garbage_text(text: str) -> bool:
     if not text:
         return True
 
+    # Pokégear "Click! ...... ......" is instant text, filter it
+    if text.startswith("Click!"):
+        return True
+
     # Count alphanumeric characters
     alnum_count = sum(1 for c in text if c.isalnum())
 
@@ -226,25 +230,29 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
             normalized = normalize_to_ds_resolution(top_screen, layout)
             state = detector.detect_state(normalized)
 
-            if state == TextboxState.OPEN:
+            is_pokegear = (state == TextboxState.POKEGEAR)
+            if state == TextboxState.OPEN or is_pokegear:
                 # Extract text lines
                 line1_img = normalized[TEXT_Y_LINE1:TEXT_Y_LINE1 + CHAR_HEIGHT, TEXT_X:TEXT_X + TEXT_WIDTH]
                 line2_img = normalized[TEXT_Y_LINE2:TEXT_Y_LINE2 + CHAR_HEIGHT, TEXT_X:TEXT_X + TEXT_WIDTH]
 
-                # Add white padding on right for HGSS to allow template matching at edge
+                # Add padding on right for HGSS to allow template matching at edge
                 # HGSS text extends close to screen edge, templates need space after chars
+                # For Pokégear, use black padding (after inversion, black→white = correct for OCR)
                 if game == "hgss":
-                    padding = np.full((CHAR_HEIGHT, 20, 3), 255, dtype=np.uint8)
+                    padding_color = 0 if is_pokegear else 255
+                    padding = np.full((CHAR_HEIGHT, 20, 3), padding_color, dtype=np.uint8)
                     line1_img = np.hstack([line1_img, padding])
                     line2_img = np.hstack([line2_img, padding])
 
                 # Validate textbox region (must have white background)
-                if not is_valid_textbox_region(line1_img, validity_threshold):
+                # Skip for Pokégear since dark background would fail this check
+                if not is_pokegear and not is_valid_textbox_region(line1_img, validity_threshold):
                     # Not a real textbox - skip this frame
                     continue
 
-                text1 = ocr.recognize_line(line1_img).strip()  # Strip leading/trailing spaces
-                text2 = ocr.recognize_line(line2_img).strip()
+                text1 = ocr.recognize_line(line1_img, invert=is_pokegear).strip()
+                text2 = ocr.recognize_line(line2_img, invert=is_pokegear).strip()
 
                 # Try big text detection if normal OCR finds nothing but there are dark pixels
                 # Big text is 2x vertically stretched (like "Pum!!!", "Thud!!!")
@@ -392,6 +400,21 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                     is_slow = text_growth_count > 0
                     # Also filter out garbage text (artifacts from transitions)
                     is_valid = not is_garbage_text(current_dialogue['line1'])
+                    # Filter out partial-render fragments: very short dialogues with
+                    # alphanumeric content that are replaced by a longer dialogue starting
+                    # with the same letters are likely partial renders (first few chars of
+                    # the next dialogue captured mid-render).
+                    # Real short dialogues are either punctuation-only (like "...") or
+                    # have enough text to be meaningful.
+                    if is_content_change and prev_len < 10:
+                        saved_text = current_dialogue['line1']
+                        has_alnum = any(c.isalnum() for c in saved_text)
+                        # Check if new text starts with the same alphanumeric prefix
+                        # (indicates partial render of the same line)
+                        saved_alnum = ''.join(c for c in saved_text if c.isalnum())
+                        new_alnum = ''.join(c for c in text1 if c.isalnum())
+                        if has_alnum and new_alnum.startswith(saved_alnum):
+                            is_valid = False
                     if current_dialogue['line1'] and is_slow and is_valid:
                         # Add any pending scroll_base to scroll_lines before saving
                         if scroll_base:
@@ -419,12 +442,11 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                     if is_scroll and not current_dialogue.get('scroll_line1'):
                         # First scroll - save original line1
                         current_dialogue['scroll_line1'] = current_dialogue['line1']
-                        # Reset line2 so the new post-scroll line2 can grow from scratch
+                    if is_scroll:
+                        # Reset line2 on every scroll so post-scroll text can grow from scratch
                         current_dialogue['line2'] = ''
-                        # Note: scroll_base is added to scroll_lines by the consecutive scroll
-                        # detection code when the NEXT scroll happens (or at dialogue end)
 
-                    if text2 and len(text2) >= len(current_dialogue.get('line2', '')):
+                    if text2 and len(text2) > len(current_dialogue.get('line2', '')):
                         # Track new line2 after scroll (will be output as separate line)
                         # Only update if text grew (avoid replacing complete text with truncated)
                         current_dialogue['line2'] = text2

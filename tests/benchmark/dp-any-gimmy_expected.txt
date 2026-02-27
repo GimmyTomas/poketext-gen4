@@ -3109,8 +3109,6 @@ ora, ma passa al mio Negozio di Bici, OK?
 L'albero si può abbattere con
 Taglio. Vuoi usare Taglio?
 
-I us.
-
 I usa Taglio!
 
 Sono io! Sono il primo ad essere stato
