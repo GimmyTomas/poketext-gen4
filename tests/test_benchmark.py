@@ -28,7 +28,7 @@ ITALIAN_VIDEO = "dp-any-gimmy.mp4"
 ITALIAN_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-gimmy_expected.txt"
 
 HGSS_VIDEO = "hgss-gless-werster.mp4"
-HGSS_EXPECTED = Path(__file__).parent / "benchmark" / "hgss-gless-werster_expected_first_10_mins.txt"
+HGSS_EXPECTED = Path(__file__).parent / "benchmark" / "hgss-gless-werster_expected_first_17_mins.txt"
 
 # Maximum allowed character differences (complete match with small tolerance)
 MAX_DIFF_CHARS = 5
@@ -277,10 +277,10 @@ def test_full(video_filter: str = None):
         print()
 
     if not video_filter or "hgss" in video_filter:
-        # HGSS: first 10 minutes of expected output
+        # HGSS: first 17 minutes of expected output
         results.append(test_video(
             HGSS_VIDEO, HGSS_EXPECTED, "HGSS (hgss-gless-werster)",
-            end=600
+            end=1020
         ))
         print()
 
@@ -318,7 +318,7 @@ def test_fast(duration: float = 60, video_filter: str = None):
     if not video_filter or "hgss" in video_filter:
         results.append(test_video(
             HGSS_VIDEO, HGSS_EXPECTED, "HGSS (hgss-gless-werster)",
-            end=min(duration, 600), prefix_match=True
+            end=min(duration, 1020), prefix_match=True
         ))
         print()
 

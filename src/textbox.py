@@ -205,7 +205,7 @@ class TextboxDetector:
         # This distinguishes from uniformly blue screens (intro transitions).
         if not self._is_strip_dark(screen, self.bottom_strip_y):
             return False
-        if not self._is_strip_dark(screen, self.mid_strip_y):
+        if not self._is_strip_dark(screen, self.mid_strip_y, max_mean=120):
             return False
 
         # Left border must NOT be white (same check as normal textbox)

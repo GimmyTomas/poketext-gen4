@@ -603,3 +603,342 @@ That's my Trainer Card!
 
 Oh no!
 You saw my name...
+
+Who are you?
+We are investigating the case of the
+missing Pokémon here...
+
+Rule number one!
+"Whoever did it will come
+back to the site.”
+
+Oh my... So you must be...
+the one who did it?
+
+Ethan: Hold on a second!
+She has nothing to do with it!
+
+I saw it.
+There was a red-haired boy
+looking into the building!
+
+What?
+You battled a boy like that?
+
+He must be the one who did it...
+Did you happen to get his name?
+
+I see! So , was
+his name.
+
+Thanks for helping my investigation!
+
+My next assignment is to search for
+this red-haired individual.
+
+Ethan: I!
+I'm glad they understand you are
+innocent.
+
+See you later!
+
+Professor Elm: I, this
+is terrible...
+
+Oh, yes, what was Mr. Pokémon's
+big discovery?
+
+I handed the Mystery Egg
+to Professor Elm.
+
+Professor Elm: Huh?
+This is an...Egg, isn't it?
+
+This Egg may be something I've never
+seen...still it's just an Egg.
+
+Mr. Pokémon is always fascinated
+by Eggs.
+
+Well, since he gave it to us, we might
+as well find out what secret it holds.
+
+I'll keep it for a while to find out
+about the Egg.
+
+Professor Elm: What?!
+
+Professor Oak gave you a Pokédex?
+
+I, is that true? Th-that's
+incredible!
+
+He is superb at seeing the potential
+of people as Trainers.
+
+Wow, I.
+I knew you were a little different.
+Things are going to be fun!
+
+Your Pokémon seem to really like you,
+so why don't you...take the
+Pokémon Gym challenge?
+
+If you manage to defeat all the
+Gym Leaders, you'll eventually
+challenge the Pokémon League
+Champion!
+
+...Or not! Ha ha!
+
+Becoming the Champion is not at all
+easy, but you can certainly
+challenge Violet City's Gym.
+
+...I. Challenging the
+Gyms scattered around will be
+a long journey.
+
+Before you leave, make sure
+that you talk to your mom.
+
+Ethan: There you are!
+
+Ethan: I!
+You can catch wild Pokémon
+with Poké Balls.
+
+Follow me!
+
+A wild RATTATA appeared!
+
+Go! MARILL!
+
+MARILL used
+Tackle!
+
+The wild RATTATA used
+Tackle!
+
+All right! I got its HP down!
+Time to throw a Poké Ball!
+
+Ethan used
+one Poké Ball!
+
+Gotcha!
+RATTATA was caught!
+
+See? Just like that!
+
+It's better to lower your
+target's HP more than I did,
+or make it sleep or something.
+
+You can try all kinds of things
+to see what works.
+
+I'll give you these. Good luck!
+
+Obtained the Poké Balls!
+
+I put the Poké Balls
+in the ■POKé BALLS Pocket.
+
+Ethan: See ya!
+
+You're a Pokémon Trainer, right?
+Then you have to battle!
+
+You are challenged by
+Youngster Mikey!
+
+Youngster Mikey sent
+out PIDGEY!
+
+Go! J!
+
+J used
+Tackle!
+
+The foe's PIDGEY used
+Tackle!
+
+J used
+Tackle!
+
+The foe's PIDGEY used
+Tackle!
+
+J used
+Tackle!
+
+The foe's PIDGEY fainted!
+
+J gained
+22 Exp. Points!
+
+Youngster Mikey sent
+out RATTATA!
+
+J used
+Leer!
+
+The foe's RATTATA's Defense
+fell!
+
+The foe's RATTATA used
+Tackle!
+
+J used
+Tackle!
+
+The foe's RATTATA used
+Tail Whip!
+
+J's Defense
+fell!
+
+J used
+Tackle!
+
+The foe's RATTATA fainted!
+
+J gained
+48 Exp. Points!
+
+J grew to
+Lv. 7!
+
+Player defeated
+Youngster Mikey!
+
+That's strange.
+I won before.
+
+I got ₽64
+for winning!
+
+Hello?
+
+...I?
+
+I heard from Professor Elm that you
+went on a long trip.
+
+I wish you would have told me...
+What about your money? Should I
+save it?
+
+OK. I won't save your money.
+
+I, keep it up! I'm rooting
+for you, baby!
+
+Ethan: I knew it was you, I!
+
+How did you get past me?
+Here is something neat for
+surprising me, I!
+
+I obtained
+the Vs. Recorder!
+
+I put the Vs. Recorder
+in the ■KEY ITEMS Pocket.
+
+The Vs. Recorder can record
+your Pokémon battles.
+
+I have to go now!
+
+I won't let you pass me again!
+
+Come on, MARILL!
+
+However hard we battle, the tower will
+stand strong.
+
+You are challenged by
+Sage Nico!
+
+Sage Nico sent
+out BELLSPROUT!
+
+Go! J!
+
+J used
+Tackle!
+
+The foe's BELLSPROUT used
+Vine Whip!
+
+It's not very effective...
+
+J used
+Tackle!
+
+The foe's BELLSPROUT used
+Vine Whip!
+
+It's not very effective...
+
+J used
+Tackle!
+
+The foe's BELLSPROUT fainted!
+
+J gained
+54 Exp. Points!
+
+J grew to
+Lv. 8!
+
+Sage Nico sent
+out BELLSPROUT!
+
+J used
+Tackle!
+
+The foe's BELLSPROUT used
+Vine Whip!
+
+It's not very effective...
+
+J used
+Tackle!
+
+The foe's BELLSPROUT fainted!
+
+J gained
+54 Exp. Points!
+
+Sage Nico sent
+out BELLSPROUT!
+
+J used
+Tackle!
+
+The foe's BELLSPROUT used
+Vine Whip!
+
+It's not very effective...
+
+J used
+Tackle!
+
+The foe's BELLSPROUT fainted!
+
+J gained
+54 Exp. Points!
+
+J grew to
+Lv. 9!
+
+Player defeated
+Sage Nico!
+
+I fought hard, but I'm too weak.
+
+I got ₽144
+for winning!

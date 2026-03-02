@@ -76,24 +76,24 @@ def is_garbage_text(text: str) -> bool:
 
     # Very short fragments with isolated single letters are garbage
     # Valid short text: "OK", "No!", "Sì!", "I?", "G ..." — words or letter+punctuation
-    # Garbage: "L j" (two random single letters separated by space)
-    if alnum_count <= 2:
-        # Check if all alpha characters are isolated single letters (no consecutive alpha)
-        alpha_runs = re.findall(r'[a-zA-ZÀ-ÿ]+', text)
-        has_multi_letter_word = any(len(run) >= 2 for run in alpha_runs)
-        if not has_multi_letter_word and len(alpha_runs) >= 2:
-            # Multiple isolated single letters (like "L j", "g ,L") = garbage
-            return True
+    # Garbage: "L j", "i i i i" (isolated single letters separated by spaces)
+    alpha_runs = re.findall(r'[a-zA-ZÀ-ÿ]+', text)
+    has_multi_letter_word = any(len(run) >= 2 for run in alpha_runs)
+    if not has_multi_letter_word and len(alpha_runs) >= 2:
+        # Multiple isolated single letters (like "L j", "g ,L", "i i i i") = garbage
+        return True
 
     # Short text starting with punctuation is likely garbage
     # Valid dialogue starts with a letter, digit, or "..." (already handled above)
     # Examples of garbage: ",L L", "…, gyg", "' ab"
     # Exception: text starting with accented chars (é, è, etc.) is valid
     if stripped and not stripped[0].isalnum():
-        # Starts with punctuation
-        if len(stripped) <= 8 and alnum_count <= 4:
-            # Short text starting with punctuation and few letters = garbage
-            return True
+        # Starts with punctuation — but allow text starting with "..." (ellipsis)
+        # Real dialogue often uses "..." followed by text (e.g., "...I?")
+        if not stripped.startswith("..."):
+            if len(stripped) <= 8 and alnum_count <= 4:
+                # Short text starting with punctuation and few letters = garbage
+                return True
 
     # Short random lowercase text with punctuation is likely OCR noise
     # Valid dialogue typically starts with capital letter or is proper text
@@ -124,6 +124,9 @@ def is_garbage_text(text: str) -> bool:
         stripped = text.strip()
         if stripped and stripped[0].isalnum():
             # Starts with letter - likely valid (e.g., "G ...", "I?")
+            pass
+        elif stripped and stripped.startswith("..."):
+            # Starts with "..." ellipsis - valid dialogue (e.g., "...I?")
             pass
         elif len(text) > 3:
             # Starts with punctuation and is long - likely garbage
@@ -222,6 +225,7 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
         scroll_base = ''  # The text that scrolled up, to be prepended to new line2
         prev_text_len = 0  # Track text length to detect instant vs slow text
         text_growth_count = 0  # Count frames where text grew incrementally
+        in_scroll_anim = False  # True when scroll animation detected (empty frame)
 
         # Use sequential frame reading (much faster than seeking)
         for frame_num, frame in video.frames(start_frame=start_frame, max_frames=end_frame):
@@ -340,23 +344,33 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                 # But only do this for slow text (text_growth_count > 0)
                 # Instant text (like battle menu) should be allowed to reset naturally
                 if current_dialogue['line1'] and current_dialogue['line2'] and text_growth_count > 0:
-                    if current_len == 0 and prev_len > 0:
-                        # Text disappeared - scroll animation
+                    if is_pokegear and current_len == 0 and prev_len > 0:
+                        # Pokégear text disappeared - scroll animation starting.
+                        # Pokégear scroll produces garbled OCR on intermediate frames
+                        # (dark background causes noise). Normal textboxes go through
+                        # SCROLLING state instead, so this is Pokégear-specific.
+                        in_scroll_anim = True
+                        prev_text_len = 0
+                        continue
+                    if in_scroll_anim and current_len > 0 and current_len < prev_len * 0.4:
+                        # Still in Pokégear scroll animation — text is garbled/partial, skip
                         prev_text_len = 0
                         continue
                     if current_len < prev_len and prev_len > 10:
                         # Text got much shorter during active slow text with both lines.
                         # This could be a scroll animation frame (garbage OCR from mid-scroll
                         # pixel shifts) OR a real new dialogue starting.
-                        # Distinguish: scroll garbage is garbled/nonsensical text, while
-                        # a real new dialogue starts with clean text (like "B" for "But...").
                         old_l2_prefix = old_line2[:10] if len(old_line2) > 10 else old_line2
                         looks_like_scroll = text1.startswith(old_l2_prefix) if text1 and old_l2_prefix else False
-                        if not looks_like_scroll and is_garbage_text(text1):
+                        if looks_like_scroll:
+                            # Text matches scroll pattern — let scroll detection handle it
+                            pass
+                        elif is_garbage_text(text1):
                             # Garbled text that doesn't match scroll pattern - skip
                             prev_text_len = 0
                             continue
                     # Otherwise this is a dialogue ending (possibly instant text) - let is_reset handle it
+                in_scroll_anim = False
 
                 if prev_len > 5:  # Only check if we had meaningful text before
                     if current_len < prev_len * 0.4:  # Dropped by more than 60%
@@ -391,6 +405,12 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                             # Punctuation dialogue (like "...") followed by text
                             content_different = True
                     if content_different:
+                        # Don't trigger content change for garbage text during
+                        # scroll animations — OCR can produce garbled text from
+                        # mid-scroll pixel shifts that has a different prefix
+                        if text_growth_count > 0 and is_garbage_text(text1):
+                            prev_text_len = 0
+                            continue
                         is_content_change = True
                         is_reset = True
 
@@ -411,9 +431,11 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                         has_alnum = any(c.isalnum() for c in saved_text)
                         # Check if new text starts with the same alphanumeric prefix
                         # (indicates partial render of the same line)
+                        # Exception: text starting with "..." is real dialogue,
+                        # not a partial render (e.g., "...I?" before "I heard...")
                         saved_alnum = ''.join(c for c in saved_text if c.isalnum())
                         new_alnum = ''.join(c for c in text1 if c.isalnum())
-                        if has_alnum and new_alnum.startswith(saved_alnum):
+                        if has_alnum and new_alnum.startswith(saved_alnum) and not saved_text.startswith("..."):
                             is_valid = False
                     if current_dialogue['line1'] and is_slow and is_valid:
                         # Add any pending scroll_base to scroll_lines before saving
@@ -425,6 +447,7 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                     # Start new dialogue
                     current_dialogue = {'line1': '', 'line2': '', 'frame': frame_num, 'is_slow': True}
                     scroll_base = ''  # Reset scroll state
+                    in_scroll_anim = False
                     prev_text_len = 0
                     text_growth_count = 0
 
@@ -522,6 +545,7 @@ def extract_dialogues(video_path: str, start_seconds: float = 0, end_seconds: fl
                 current_dialogue = {'line1': '', 'line2': '', 'frame': 0, 'is_slow': True}
                 textbox_was_open = False
                 scroll_base = ''  # Reset scroll state
+                in_scroll_anim = False
                 prev_text_len = 0
                 text_growth_count = 0
 
