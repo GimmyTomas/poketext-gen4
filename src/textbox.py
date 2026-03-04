@@ -84,6 +84,12 @@ class TextboxDetector:
         # HGSS needs looser tolerance (20%) due to frame border blending
         if self.game == "hgss":
             self.strip_tolerance = 0.20
+            # Outer strip ranges to reject cutscene false positives
+            # A real HGSS textbox has white background from x=8 to x=248
+            # Cutscene content may be bright in the center but not at the edges
+            self.outer_strip_left = (20, 80)    # Left outer region
+            self.outer_strip_right = (176, 236)  # Right outer region
+            self.outer_strip_tolerance = 0.30    # Slightly looser than center
         else:
             self.strip_tolerance = 0.02
 
@@ -106,6 +112,11 @@ class TextboxDetector:
                 return TextboxState.POKEGEAR
             return TextboxState.CLOSED
 
+        # 1b. For HGSS, check outer strips to reject cutscene false positives
+        # A real textbox is white across the full width, not just the center
+        if self.game == "hgss" and not self._is_outer_strips_white(screen, self.bottom_strip_y):
+            return TextboxState.CLOSED
+
         # 2. Check left border (must NOT be white for textbox to be open)
         if self._is_left_border_white(screen):
             return TextboxState.CLOSED
@@ -126,6 +137,21 @@ class TextboxDetector:
         else:
             # Middle strip not white - could be scrolling or different state
             return TextboxState.SCROLLING
+
+    def _is_outer_strips_white(self, screen: np.ndarray, y: int) -> bool:
+        """Check if the outer strips (left and right of center) are mostly white.
+
+        Used for HGSS to reject cutscene content that happens to be bright
+        in the center strip but not across the full textbox width.
+        """
+        tolerance = self.outer_strip_tolerance
+        for x_start, x_end in [self.outer_strip_left, self.outer_strip_right]:
+            strip = screen[y, x_start:x_end]
+            total_pixels = strip.shape[0]
+            white_pixels = int(np.sum(np.all(strip > self.WHITE_THRESHOLD, axis=1)))
+            if white_pixels <= total_pixels * (1 - tolerance):
+                return False
+        return True
 
     def _is_strip_white(self, screen: np.ndarray, y: int, tolerance: float = None) -> bool:
         """Check if a horizontal strip is mostly white."""

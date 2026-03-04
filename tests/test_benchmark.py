@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 # Test configuration
 ENGLISH_VIDEO = "dp-any-scoa.mp4"
-ENGLISH_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-scoa_first_expected.txt"
+ENGLISH_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-scoa_expected.txt"
 
 ITALIAN_VIDEO = "dp-any-gimmy.mp4"
 ITALIAN_EXPECTED = Path(__file__).parent / "benchmark" / "dp-any-gimmy_expected.txt"
@@ -229,6 +229,7 @@ def test_quick():
         (ITALIAN_VIDEO, 535, 555, "Shop/pocket segment"),
         (ENGLISH_VIDEO, 280, 300, "Look! Poké Balls segment"),
         (HGSS_VIDEO, 480, 510, "HGSS Pokégear phone call"),
+        (HGSS_VIDEO, 7948, 8039, "HGSS cutscene (should be silent)"),
     ]
 
     for video, start, end, desc in segments:
@@ -242,6 +243,18 @@ def test_quick():
             output = run_extraction(video, start, end)
             lines = [l for l in output.strip().split('\n') if l]
             print(f"  OK: Found {len(lines)} lines of dialogue")
+
+            # Segments marked "should be silent" must produce no dialogue
+            if "should be silent" in desc:
+                if lines:
+                    print(f"  FAIL: Expected no dialogue but got {len(lines)} lines:")
+                    for line in lines[:5]:
+                        print(f"    {line}")
+                    all_passed = False
+                else:
+                    print(f"  OK: No dialogue (as expected)")
+                print()
+                continue
 
             # Check for common issues
             if "'''" in output or '"""' in output:

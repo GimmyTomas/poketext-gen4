@@ -54,6 +54,12 @@ def is_garbage_text(text: str) -> bool:
     if any(ord(c) > 0xFFFF for c in text):
         return True
 
+    # ₽ (Pokédollar) is always followed by a digit in real text (₽500, ₽1, etc.)
+    # ₽ not followed by a digit is OCR garbage
+    if '₽' in text:
+        if not re.search(r'₽\d', text):
+            return True
+
     # Filter out menu/settings text that appears like slow text but isn't needed
     menu_patterns = ["WINDOW TYPE", "TEXT SPEED", "BATTLE SCENE", "BATTLE STYLE"]
     if any(pattern in text.upper() for pattern in menu_patterns):
@@ -143,10 +149,10 @@ def is_garbage_text(text: str) -> bool:
         return True
 
     # Long text with very low alphanumeric ratio is likely OCR garbage
-    # Real dialogue has 50%+ alphanumeric; scroll animation artifacts have <30%
+    # Real dialogue has 50%+ alphanumeric; scroll animation artifacts have <=30%
     # e.g., "■ ìì'.,,". …,"?,,. . , ,↓,,.Ì,Ì"" " ì" (14% alnum)
     text_len = len(text.replace(' ', ''))
-    if text_len >= 10 and alnum_count / text_len < 0.30:
+    if text_len >= 10 and alnum_count / text_len <= 0.30:
         return True
 
     return False
@@ -654,8 +660,19 @@ if __name__ == "__main__":
     with open(output_file, 'w') as f:
         f.write(output_text)
 
-    # Print summary
-    text_seconds = total_chars / 60
+    # Print summary with frame breakdown
+    total_scrolls = sum(len(d.get('scroll_lines', [])) for d in dialogues)
+    total_closes = len(dialogues)
+
+    char_frames = total_chars
+    scroll_frames = total_scrolls * 7
+    close_frames = total_closes * 2
+    total_frames = char_frames + scroll_frames + close_frames
+    total_seconds = total_frames / 60
+
     print(f"\nFound {len(dialogues)} dialogues")
-    print(f"Total characters: {total_chars} ({text_seconds:.2f} seconds of text)")
+    print(f"Total frames: {total_frames} ({total_seconds:.2f} seconds)")
+    print(f"  Characters: {char_frames} frames ({total_chars} chars)")
+    print(f"  Scrolls: {scroll_frames} frames ({total_scrolls} scrolls × 7 frames)")
+    print(f"  Textbox closes: {close_frames} frames ({total_closes} closes × 2 frames)")
     print(f"Saved to: {output_file}")
