@@ -1,10 +1,10 @@
-# Poketext Gen4
+# Pokétext Gen4
 
-Extract dialogue text from Pokemon Generation 4 speedrun videos for character counting and route optimization.
+Extract dialogue text from Pokémon Generation 4 speedrun videos for character counting and route optimization.
 
 ## What this does
 
-In Gen 4 Pokemon games, dialogue text is printed at **1 character per frame** (60fps). That means every extra character costs ~16ms of real time. This tool watches a video recording of a speedrun, detects when dialogue textboxes appear, and extracts all the "slow text" that the game prints character by character.
+In Gen 4 Pokémon games, dialogue text is printed at **1 character per frame** (60fps). That means every extra character costs ~16ms of real time. This tool watches a video recording of a speedrun, detects when dialogue textboxes appear, and extracts all the "slow text" that the game prints character by character.
 
 Example output:
 
@@ -12,7 +12,7 @@ Example output:
 Ciao, felice di conoscerti!
 
 Ti do il benvenuto nel mondo dei
-Pokemon!
+Pokémon!
 
 Pum!!!
 
@@ -75,7 +75,7 @@ The game is auto-detected from the filename: include `hgss`, `heartgold`, or `so
 3. **Text animation tracking** -- Distinguishes slow text (1-3 chars/frame) from instant text by tracking growth patterns across frames
 4. **OCR** -- Template matching against 122 extracted game font characters (A-Z, a-z, 0-9, punctuation, accented letters, symbols)
 5. **Big text** -- Detects 2x vertically stretched text (e.g., "Pum!!!", "Thud!!") using stretched templates
-6. **Pokegear phone calls** (HGSS) -- Detects white-on-dark text in Pokegear call screens
+6. **Pokégear phone calls** (HGSS) -- Detects white-on-dark text in Pokégear call screens
 7. **Garbage filtering** -- Rejects OCR artifacts from screen transitions and cutscenes
 
 ## Project structure
@@ -118,7 +118,7 @@ python tests/test_benchmark.py quick
 # Test only a specific game
 python tests/test_benchmark.py fast -v hgss
 
-# Pokegear phone call test
+# Pokégear phone call test
 python tests/test_benchmark.py hgss-pokegear
 ```
 

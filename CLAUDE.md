@@ -1,8 +1,8 @@
-# Poketext Gen4
+# Pokétext Gen4
 
 ## Project Overview
 
-Extract "slow text" (1 char/frame at 60fps) from Pokemon Gen 4 speedrun videos for character counting and speedrun optimization.
+Extract "slow text" (1 char/frame at 60fps) from Pokémon Gen 4 speedrun videos for character counting and speedrun optimization.
 
 ## Current Status: Phase 2 Complete
 
@@ -24,7 +24,7 @@ Diamond/Pearl and HeartGold/SoulSilver dialogue extraction works for full-length
 - [x] Full video processing (entire speedrun videos)
 - [x] Garbage text filtering (transition artifacts)
 - [x] HGSS support (game-specific textbox detection, wider text regions)
-- [x] HGSS Pokegear phone call detection (white-on-dark text)
+- [x] HGSS Pokégear phone call detection (white-on-dark text)
 - [x] HGSS cutscene false positive rejection (outer strip check)
 
 ### Planned (Future Phases):
@@ -104,7 +104,7 @@ python extract_dialogue.py dp-any-gimmy.mp4 60 120
 - Uses stretched templates with lower matching threshold
 - Triggers SCROLLING state due to extending into detection strip
 
-### Pokegear Phone Calls (HGSS)
+### Pokégear Phone Calls (HGSS)
 - White text on blue/black gradient background
 - Detected via blue pixel analysis at y=150, dark check at y=168/183
 - Text is inverted before OCR (white-on-dark -> dark-on-white)
@@ -134,7 +134,7 @@ python tests/test_benchmark.py quick
 # Filter by game
 python tests/test_benchmark.py fast -v hgss
 
-# Pokegear phone call test
+# Pokégear phone call test
 python tests/test_benchmark.py hgss-pokegear
 ```
 

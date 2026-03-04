@@ -1,4 +1,4 @@
-# Poketext Gen4 - Development Notes
+# Pokétext Gen4 - Development Notes
 
 ## Phase 2 Complete
 
@@ -7,12 +7,12 @@ HeartGold/SoulSilver support added alongside existing Diamond/Pearl support.
 ### HGSS-Specific Issues Resolved
 
 1. **HGSS textbox detection**: HGSS has wider frame borders that get blended when scaling, requiring looser strip tolerance (20% vs 2% for DP)
-2. **Pokegear phone calls**: White text on blue/black gradient background. Detected via saturated blue pixel analysis at y=150 and dark strip checks at y=168/183. Text is inverted before OCR.
-3. **Pokegear "Click!" filtering**: "Click! ...... ......" is instant text from Pokegear, filtered in garbage detection
-4. **Pokegear scroll animation**: Dark background causes garbled OCR during scroll frames. Added in_scroll_anim flag to skip mid-scroll garbage frames.
+2. **Pokégear phone calls**: White text on blue/black gradient background. Detected via saturated blue pixel analysis at y=150 and dark strip checks at y=168/183. Text is inverted before OCR.
+3. **Pokégear "Click!" filtering**: "Click! ...... ......" is instant text from Pokégear, filtered in garbage detection
+4. **Pokégear scroll animation**: Dark background causes garbled OCR during scroll frames. Added in_scroll_anim flag to skip mid-scroll garbage frames.
 5. **HGSS text region**: Text starts at x=8 (wider than DP's x=14), with padding added for template matching at screen edges
 6. **Cutscene false positives**: HGSS cutscenes can have bright content in the center strip that mimics a textbox. Added outer strip check (left x=20-80, right x=176-236) to verify the full textbox width is white.
-7. **Garbage filter improvements**: Added check for Pokedollar symbol not followed by digit, emoji characters (outside BMP), and improved short text heuristics
+7. **Garbage filter improvements**: Added check for Pokédollar symbol not followed by digit, emoji characters (outside BMP), and improved short text heuristics
 
 ## Phase 1 Complete
 
