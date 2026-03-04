@@ -1,122 +1,131 @@
 # Poketext Gen4
 
-Extract dialogue text from Pokémon Generation 4 speedrun videos. Designed for speedrun optimization and cross-language text length analysis.
+Extract dialogue text from Pokemon Generation 4 speedrun videos for character counting and route optimization.
 
-## Purpose
+## What this does
 
-In Gen 4 Pokémon games, text is printed at 1 character per frame (at 60fps). This makes text length a significant factor in speedrun times. This tool extracts all "slow text" (character-by-character text) from video recordings, enabling:
+In Gen 4 Pokemon games, dialogue text is printed at **1 character per frame** (60fps). That means every extra character costs ~16ms of real time. This tool watches a video recording of a speedrun, detects when dialogue textboxes appear, and extracts all the "slow text" that the game prints character by character.
 
-- Character counting for speedrun route optimization
-- Cross-language text length comparison
-- Full dialogue extraction for documentation
-
-## Status: Phase 1 Complete
-
-The first working version is complete for Diamond/Pearl with Western languages (English, Italian, etc.).
-
-### Working Features
-- Automatic screen layout detection (handles various video resolutions)
-- Textbox state detection (open, closed, scrolling)
-- Template-based OCR with 122 character templates
-- Slow text vs instant text detection
-- Scrolling text handling
-- Big text support (2x vertically stretched text like "Pum!!!", "Thud!!")
-- Full dialogue extraction pipeline
-
-### Tested On
-- Italian Diamond speedrun (30fps)
-- English Diamond speedrun (60fps)
-
-## Supported Games
-
-- Pokémon Diamond / Pearl (tested)
-- Pokémon Platinum (planned)
-- Pokémon HeartGold / SoulSilver (planned)
-
-## Supported Languages
-
-Currently: English, Italian (and other Western languages sharing the same font)
-
-Planned: French, German, Spanish, Japanese
-
-## Installation
-
-```bash
-pip install opencv-python numpy
-```
-
-Requires Python 3.9+.
-
-## Usage
-
-```bash
-# Extract dialogue from first 3 minutes
-python extract_dialogue.py video.mp4 180
-
-# Extract entire video
-python extract_dialogue.py video.mp4
-
-# Output is saved to <video_name>_dialogue.txt
-```
-
-## How It Works
-
-1. **Screen Detection**: Auto-detects the DS top screen position and scale factor
-2. **Textbox Detection**: Identifies when dialogue textboxes are open using pixel analysis
-3. **Text Animation Detection**: Tracks text growth to distinguish slow text (1-3 chars/frame) from instant text
-4. **Character Recognition**: Custom template matching using extracted game font templates
-5. **Big Text Detection**: 2x vertically stretched templates for special text effects
-
-## Project Structure
-
-```
-extract_dialogue.py     # Main extraction script
-src/
-├── video.py           # Video frame extraction
-├── screen.py          # Screen layout detection
-├── textbox.py         # Textbox state detection
-└── ocr.py             # Template matching OCR
-templates/
-└── western/           # 122 character template images
-tests/
-├── test_benchmark.py  # Regression test
-└── benchmark/         # Expected output files
-tools/                 # Template extraction utilities
-legacy-code/           # Original C++ implementation
-```
-
-## Testing
-
-Run the benchmark test before making changes:
-
-```bash
-python tests/test_benchmark.py
-```
-
-This verifies that dialogue extraction matches the expected output for a 5:45 test segment.
-
-## Output Format
+Example output:
 
 ```
 Ciao, felice di conoscerti!
 
 Ti do il benvenuto nel mondo dei
-Pokémon!
+Pokemon!
 
 Pum!!!
 
 C: Che succede?!?
 ```
 
-- Each dialogue entry separated by blank lines
-- Line1 and Line2 vertically aligned (no indent)
-- No timestamps (for now)
+Each dialogue entry is separated by a blank line. Only slow text is extracted -- instant text (menus, name entry prompts) is excluded.
+
+## Supported games
+
+| Game | Status |
+|------|--------|
+| Diamond / Pearl | Tested (Italian, English) |
+| HeartGold / SoulSilver | Tested (English) |
+| Platinum | Planned |
+
+Western languages (English, Italian, French, German, Spanish) share the same font and should all work. Japanese support is planned.
+
+## Getting started
+
+### Requirements
+
+- Python 3.9+
+- A video file of a Gen 4 speedrun
+
+### Install
+
+```bash
+pip install opencv-python numpy
+```
+
+### Run
+
+```bash
+# Extract entire video
+python extract_dialogue.py dp-any-scoa.mp4
+
+# Extract first 3 minutes
+python extract_dialogue.py dp-any-scoa.mp4 180
+
+# Extract from 1:00 to 2:00
+python extract_dialogue.py dp-any-scoa.mp4 60 120
+```
+
+Output is saved to `<video_name>_dialogue.txt`.
+
+The game is auto-detected from the filename: include `hgss`, `heartgold`, or `soulsilver` in the filename for HG/SS videos.
+
+### Output format
+
+- Each dialogue box produces one or two lines (line 1 and line 2)
+- Scrolling dialogues (4+ lines) output each line separately
+- Blank line between dialogue entries
+- A summary of character count and frame cost is printed to the console
+
+## How it works
+
+1. **Screen detection** -- Auto-detects the DS top screen position and scale factor from the video resolution
+2. **Textbox detection** -- Checks pixel strips to determine if a textbox is open, closed, or scrolling
+3. **Text animation tracking** -- Distinguishes slow text (1-3 chars/frame) from instant text by tracking growth patterns across frames
+4. **OCR** -- Template matching against 122 extracted game font characters (A-Z, a-z, 0-9, punctuation, accented letters, symbols)
+5. **Big text** -- Detects 2x vertically stretched text (e.g., "Pum!!!", "Thud!!") using stretched templates
+6. **Pokegear phone calls** (HGSS) -- Detects white-on-dark text in Pokegear call screens
+7. **Garbage filtering** -- Rejects OCR artifacts from screen transitions and cutscenes
+
+## Project structure
+
+```
+extract_dialogue.py      # Main extraction script
+src/
+  video.py              # Video frame reading
+  screen.py             # Screen layout detection
+  textbox.py            # Textbox state detection
+  ocr.py                # Template matching OCR
+  games/                # Game-specific configuration
+templates/
+  western/              # 122 character template images
+tests/
+  test_benchmark.py     # Regression tests
+  benchmark/            # Expected output files
+game-data/              # Game font/textbox reference data
+tools/                  # Template extraction utilities
+legacy-code/            # Original C++ implementation
+```
+
+## Testing
+
+Video files are not included in the repository (they're too large). You need your own video files to run tests.
+
+```bash
+# Full benchmark tests (compares entire video output against expected)
+python tests/test_benchmark.py
+
+# Fast prefix tests (first 60s of each video)
+python tests/test_benchmark.py fast
+
+# Fast test with custom duration
+python tests/test_benchmark.py fast -d 300
+
+# Quick segment tests (specific tricky segments)
+python tests/test_benchmark.py quick
+
+# Test only a specific game
+python tests/test_benchmark.py fast -v hgss
+
+# Pokegear phone call test
+python tests/test_benchmark.py hgss-pokegear
+```
 
 ## Contributing
 
 See `NOTES.md` for development notes and technical details.
-See `CLAUDE.md` for AI assistant context.
 
 ## License
 
-MIT
+[MIT](LICENSE)
